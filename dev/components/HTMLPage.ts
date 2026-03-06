@@ -4,10 +4,11 @@ type HTMLPageProps = {
   cssClasses?: string;
   body: Child;
   onMount?: () => void;
+  onClick?: () => void;
 };
 
 export const HTMLPage = component<HTMLPageProps>(
-  ({ cssClasses, body, onMount }) => {
+  ({ cssClasses, body, onMount, onClick }) => {
     return m.Html({
       lang: "en",
       children: [
@@ -53,6 +54,7 @@ export const HTMLPage = component<HTMLPageProps>(
           tabindex: "-1",
           class: cssClasses,
           onmount: onMount,
+          onclick: onClick,
           children: [m.Script({ src: "main.js", defer: "true" }), body],
         }),
       ],
