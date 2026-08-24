@@ -1,4 +1,4 @@
-import { Child, component, m } from "@mufw/maya";
+import { Child, component, m } from "@cyftec/maya/core";
 
 type HTMLPageProps = {
   cssClasses?: string;
@@ -40,14 +40,14 @@ export const HTMLPage = component<HTMLPageProps>(
               name: "viewport",
               content: "width=device-width, initial-scale=1.0",
             }),
-            // m.Link({
-            //   rel: "stylesheet",
-            //   href: "/assets/styles.css",
-            // }),
-            // m.Link({
-            //   rel: "manifest",
-            //   href: "/manifest.json",
-            // }),
+            m.Link({
+              rel: "stylesheet",
+              href: "/assets/styles.css",
+            }),
+            m.Link({
+              rel: "manifest",
+              href: "/manifest.json",
+            }),
           ],
         }),
         m.Body({
@@ -55,7 +55,11 @@ export const HTMLPage = component<HTMLPageProps>(
           class: cssClasses,
           onmount: onMount,
           onclick: onClick,
-          children: [m.Script({ src: "main.js", defer: "true" }), body],
+          children: [
+            m.Script({ src: "/app.js", defer: true }),
+            m.Script({ src: "main.js", defer: "true" }),
+            body,
+          ],
         }),
       ],
     });

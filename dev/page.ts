@@ -1,6 +1,6 @@
-import { m } from "@mufw/maya";
+import { m } from "@cyftec/maya/core";
 import { HTMLPage } from "./components";
-import { signal } from "@cyftech/signal";
+import { signal } from "@cyftec/maya/signals";
 
 const copiedMediaType = signal("");
 const copiedText = signal("");
@@ -12,7 +12,7 @@ async function blobToBase64(blob: Blob) {
   let binary = "";
 
   for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i] ?? 0);
   }
 
   const base64 = btoa(binary);
