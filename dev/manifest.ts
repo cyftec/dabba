@@ -18,6 +18,11 @@ type ChromeOnlyPwaManifest = {
       }>;
     };
   };
+  file_handlers: Array<{
+    action: string;
+    name: string;
+    accept: Record<string, string[]>;
+  }>;
 };
 
 const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
@@ -35,11 +40,14 @@ const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
       type: "image/png",
     },
   ],
-  start_url: ".",
+  start_url: "/",
   scope: "/",
   display: "standalone",
   theme_color: "#ee4440",
   background_color: "#ffffff",
+  launch_handler: {
+    client_mode: "focus-existing",
+  },
   share_target: {
     action: "/share",
     method: "POST",
@@ -56,6 +64,35 @@ const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
       ],
     },
   },
+  file_handlers: [
+    {
+      action: "/",
+      name: "Dabba",
+      accept: {
+        "image/apng": [".apng"],
+        "image/avif": [".avif"],
+        "image/bmp": [".bmp"],
+        "image/gif": [".gif"],
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/png": [".png"],
+        "image/svg+xml": [".svg"],
+        "image/webp": [".webp"],
+        "image/x-icon": [".ico"],
+        "image/*": [
+          ".apng",
+          ".avif",
+          ".bmp",
+          ".gif",
+          ".ico",
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".svg",
+          ".webp",
+        ],
+      },
+    },
+  ],
 };
 
 export default manifest;

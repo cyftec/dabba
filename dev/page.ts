@@ -10,6 +10,10 @@ import {
 import { ClipboardHistory } from "./components/ClipboardHistory.js";
 import { HTMLPage } from "./components/index.js";
 import {
+  registerFileLaunchConsumer,
+  wasFileLaunchPending,
+} from "./file-handling.js";
+import {
   clipboardEntryFromSharePayload,
   consumeSharePayload,
   SHARE_TARGET_QUERY,
@@ -64,12 +68,24 @@ async function consumeSharedContent() {
 
 let pageListeners: AbortController | undefined;
 
+function addEntriesToHistory(entries: ClipboardEntry[]) {
+  clipboardError.value = "";
+
+  for (const entry of entries) {
+    clipboardHistory.value = prependHistory(clipboardHistory.value, entry);
+  }
+}
+
+registerFileLaunchConsumer((entries) => {
+  addEntriesToHistory(entries);
+});
+
 const onPageMount = () => {
   pageListeners = new AbortController();
 
   void (async () => {
     const consumedShare = await consumeSharedContent();
-    if (!consumedShare) {
+    if (!consumedShare && !wasFileLaunchPending()) {
       await refreshClipboard();
     }
   })();
@@ -110,7 +126,7 @@ export default HTMLPage({
       m.P({
         class: css("history-hint"),
         children:
-          "Tap anywhere to refresh clipboard history, or share text and images to Dabba from other apps.",
+          "Tap anywhere to refresh clipboard history, share to Dabba from mobile apps, or use Open With on Mac and other desktops to open image files in Dabba.",
       }),
       m.If({
         subject: clipboardError,
