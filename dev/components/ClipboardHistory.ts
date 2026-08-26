@@ -6,11 +6,6 @@ import type { ClipboardEntry } from "../clipboard.js";
 type ClipboardHistoryProps = {
   history: ClipboardEntry[];
 };
-// css("history-item");
-// css("history-item-text");
-
-// css("history-item-current");
-// css("history-item-old");
 
 export const ClipboardHistory = component<ClipboardHistoryProps>(
   ({ history }) =>

@@ -53,7 +53,7 @@ export const karma: Karma = {
   maya: {
     name: "dabba",
     appType: "pwa",
-    dependencies: { "@cyftec/maya": "0.2.2" },
+    dependencies: { "@cyftec/maya": "0.2.3" },
     devDependencies: {
       "@types/web-app-manifest": "1.0.8",
       "@types/bun": "^1.3.14",
