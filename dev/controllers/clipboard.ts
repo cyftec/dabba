@@ -1,4 +1,4 @@
-import { blobToDataUrl } from "./media.js";
+import { blobToDataUrl } from "./media";
 
 export type ClipboardEntry = {
   id: string;

@@ -3,11 +3,11 @@ import type { Karma, ProjectFileNames } from "./types.js";
 const files = {
   buildable: {
     appSrcDir: "dev",
-    appViewDir: "dev",
-    pageFile: "page.ts",
-    stylesheetFile: "styles.ts",
-    assetsDirName: "assets",
+    appViewDir: "dev/view/pages",
     manifestFile: "manifest.ts",
+    pageFile: "page.ts",
+    assetsDirName: "assets",
+    stylesheetFile: "styles.ts",
   },
   static: {
     publishDir: "docs",
@@ -44,7 +44,7 @@ export const karma: Karma = {
     },
     serve: {
       port: 3000,
-      redirectOnStart: true,
+      redirectOnStart: false,
       reloadPageOnFocus: false,
       watchDir: files.buildable.appSrcDir,
       serveDir: files.disposable.stagingDir,
@@ -125,10 +125,10 @@ export const karma: Karma = {
       target: "ESNext",
       module: "ESNext",
       moduleResolution: "Bundler",
-      moduleDetection: "force",
       allowImportingTsExtensions: true,
-      isolatedModules: true,
       noEmit: true,
+      moduleDetection: "force",
+      isolatedModules: true,
       strict: true,
       skipLibCheck: true,
       forceConsistentCasingInFileNames: true,
@@ -140,6 +140,9 @@ export const karma: Karma = {
       noUnusedLocals: true,
       noUnusedParameters: true,
       types: ["bun-types"],
+      paths: {
+        "@controllers": ["./dev/controllers"],
+      },
     },
     include: ["_karma/**/*.ts", "dev/**/*.ts"],
   },

@@ -1,5 +1,5 @@
-import { blobToDataUrl } from "./media.js";
-import type { ClipboardEntry } from "./clipboard.js";
+import { blobToDataUrl } from "./media";
+import type { ClipboardEntry } from "./clipboard";
 
 type FileLaunchConsumer = (entries: ClipboardEntry[]) => void;
 

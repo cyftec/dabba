@@ -1,23 +1,19 @@
 import { m } from "@cyftec/maya/core";
 import { signal } from "@cyftec/maya/signals";
-import { css } from "./assets/styles.js";
+import { css } from "./assets/styles";
+import { ClipboardHistory } from "../components/ClipboardHistory";
+import { HTMLPage } from "../components/index";
 import {
+  ClipboardEntry,
+  clipboardEntryFromSharePayload,
   clipboardErrorMessage,
+  consumeSharePayload,
   prependHistory,
   readClipboardEntry,
-  type ClipboardEntry,
-} from "./clipboard.js";
-import { ClipboardHistory } from "./components/ClipboardHistory.js";
-import { HTMLPage } from "./components/index.js";
-import {
   registerFileLaunchConsumer,
-  wasFileLaunchPending,
-} from "./file-handling.js";
-import {
-  clipboardEntryFromSharePayload,
-  consumeSharePayload,
   SHARE_TARGET_QUERY,
-} from "./share-target.js";
+  wasFileLaunchPending,
+} from "@controllers";
 
 const clipboardHistory = signal<ClipboardEntry[]>([]);
 const clipboardError = signal("");
@@ -108,6 +104,7 @@ const onPageUnmount = () => {
   pageListeners?.abort();
   pageListeners = undefined;
 };
+
 export default HTMLPage({
   onMount: onPageMount,
   onUnmount: onPageUnmount,

@@ -1,7 +1,7 @@
 import { component, m } from "@cyftec/maya/core";
 import { tmpl } from "@cyftec/maya/signals";
-import { css } from "../assets/styles.js";
-import type { ClipboardEntry } from "../clipboard.js";
+import { css } from "../pages/assets/styles";
+import type { ClipboardEntry } from "../clipboard";
 
 type ClipboardHistoryProps = {
   history: ClipboardEntry[];

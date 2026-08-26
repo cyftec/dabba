@@ -1,5 +1,5 @@
-import { blobToDataUrl, dataUrlToText } from "./media.js";
-import type { ClipboardEntry } from "./clipboard.js";
+import { blobToDataUrl, dataUrlToText } from "./media";
+import type { ClipboardEntry } from "./clipboard";
 
 export const SHARE_TARGET_CACHE = "dabba-share-target-v1";
 export const SHARE_TARGET_PAYLOAD_KEY = "/dabba/share-target/payload";
@@ -79,7 +79,9 @@ export function clipboardEntryFromSharePayload(
   let imgSrc = "";
   let mediaType = "Plain text";
 
-  const imageFile = payload.files.find((file) => file.type.startsWith("image/"));
+  const imageFile = payload.files.find((file) =>
+    file.type.startsWith("image/"),
+  );
   if (imageFile) {
     imgSrc = imageFile.dataUrl;
     mediaType = "Image";
