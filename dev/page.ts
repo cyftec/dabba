@@ -1,14 +1,19 @@
-import { effect, signal } from "@cyftec/maya/signals";
-import { ClipboardHistory } from "./components/ClipboardHistory.js";
-import { HTMLPage } from "./components/index.js";
+import { m } from "@cyftec/maya/core";
+import { signal } from "@cyftec/maya/signals";
+import { css } from "./assets/styles.js";
 import {
   clipboardErrorMessage,
   prependHistory,
   readClipboardEntry,
   type ClipboardEntry,
 } from "./clipboard.js";
-import { m } from "@cyftec/maya/core";
-import { css } from "./assets/styles.js";
+import { ClipboardHistory } from "./components/ClipboardHistory.js";
+import { HTMLPage } from "./components/index.js";
+import {
+  clipboardEntryFromSharePayload,
+  consumeSharePayload,
+  SHARE_TARGET_QUERY,
+} from "./share-target.js";
 
 const clipboardHistory = signal<ClipboardEntry[]>([]);
 const clipboardError = signal("");
@@ -32,15 +37,52 @@ async function refreshClipboard() {
   }
 }
 
+async function consumeSharedContent() {
+  if (!location.search.includes(SHARE_TARGET_QUERY)) {
+    return false;
+  }
+
+  try {
+    const payload = await consumeSharePayload();
+    clipboardError.value = "";
+
+    if (payload) {
+      const entry = clipboardEntryFromSharePayload(payload);
+      if (entry) {
+        clipboardHistory.value = prependHistory(clipboardHistory.value, entry);
+      }
+    }
+
+    history.replaceState({}, "", location.pathname);
+    return true;
+  } catch (err) {
+    console.error("Failed to read shared content:", err);
+    clipboardError.value = "Could not load shared content.";
+    return true;
+  }
+}
+
 let pageListeners: AbortController | undefined;
 
 const onPageMount = () => {
   pageListeners = new AbortController();
-  void refreshClipboard();
+
+  void (async () => {
+    const consumedShare = await consumeSharedContent();
+    if (!consumedShare) {
+      await refreshClipboard();
+    }
+  })();
+
   window.addEventListener(
     "pageshow",
     () => {
-      void refreshClipboard();
+      void (async () => {
+        const consumedShare = await consumeSharedContent();
+        if (!consumedShare) {
+          await refreshClipboard();
+        }
+      })();
     },
     { signal: pageListeners.signal },
   );
@@ -67,7 +109,8 @@ export default HTMLPage({
       }),
       m.P({
         class: css("history-hint"),
-        children: "Tap anywhere to refresh. Newest copy appears at the top.",
+        children:
+          "Tap anywhere to refresh clipboard history, or share text and images to Dabba from other apps.",
       }),
       m.If({
         subject: clipboardError,

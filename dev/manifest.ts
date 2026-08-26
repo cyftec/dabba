@@ -3,9 +3,26 @@ import { WebAppManifest } from "web-app-manifest";
 const assetsPath = "/assets";
 const imagesPath = `${assetsPath}/images`;
 
-const manifest: WebAppManifest = {
-  short_name: "My PWA",
-  name: "My First PWA",
+type ChromeOnlyPwaManifest = {
+  share_target: {
+    action: string;
+    method: string;
+    enctype: string;
+    params: {
+      title: string;
+      text: string;
+      url: string;
+      files: Array<{
+        name: string;
+        accept: string[];
+      }>;
+    };
+  };
+};
+
+const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
+  short_name: "Dabba",
+  name: "Dabba",
   icons: [
     {
       src: `${imagesPath}/192_logo.png`,
@@ -19,10 +36,10 @@ const manifest: WebAppManifest = {
     },
   ],
   start_url: ".",
+  scope: "/",
   display: "standalone",
-  theme_color: "#000000",
+  theme_color: "#ee4440",
   background_color: "#ffffff",
-  //@ts-ignore
   share_target: {
     action: "/share",
     method: "POST",
@@ -34,7 +51,7 @@ const manifest: WebAppManifest = {
       files: [
         {
           name: "files",
-          accept: ["image/*", "video/*", "audio/*", "*/*"],
+          accept: ["image/*", "text/plain"],
         },
       ],
     },

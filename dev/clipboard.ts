@@ -1,3 +1,5 @@
+import { blobToDataUrl } from "./media.js";
+
 export type ClipboardEntry = {
   id: string;
   mediaType: string;
@@ -6,18 +8,6 @@ export type ClipboardEntry = {
 };
 
 const MAX_HISTORY = 50;
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i] ?? 0);
-  }
-
-  return `data:${blob.type};base64,${btoa(binary)}`;
-}
 
 function mediaTypeFromMime(type: string): string {
   if (type.startsWith("image/")) {
@@ -73,7 +63,7 @@ export async function readClipboardEntry(): Promise<ClipboardEntry | null> {
     const imageType = item.types.find((type) => type.startsWith("image/"));
     if (imageType) {
       const blob = await item.getType(imageType);
-      imgSrc = await blobToBase64(blob);
+      imgSrc = await blobToDataUrl(blob);
       mediaType = "Image";
     }
 
