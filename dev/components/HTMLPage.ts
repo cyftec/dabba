@@ -16,14 +16,13 @@ export const HTMLPage = component<HTMLPageProps>(
         m.Head({
           children: [
             m.Title("Dabba (by Cyfer)"),
-            // m.Link({
-            //   rel: "icon",
-            //   type: "image/x-icon",
-            //   href: "/assets/images/favicon.ico",
-            // }),
+            m.Link({
+              rel: "icon",
+              type: "image/x-icon",
+              href: "/assets/images/favicon.ico",
+            }),
             m.Meta({
               "http-equiv": "Content-Security-Policy",
-              // default-src 'self';
               content: `
                 script-src 'self';
                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
