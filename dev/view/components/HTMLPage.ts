@@ -5,11 +5,10 @@ type HTMLPageProps = {
   body: Child;
   onMount?: () => void;
   onUnmount?: () => void;
-  onClick?: () => void;
 };
 
 export const HTMLPage = component<HTMLPageProps>(
-  ({ cssClasses, body, onMount, onUnmount, onClick }) => {
+  ({ cssClasses, body, onMount, onUnmount }) => {
     return m.Html({
       lang: "en",
       children: [
@@ -18,9 +17,11 @@ export const HTMLPage = component<HTMLPageProps>(
             m.Meta({
               "http-equiv": "Content-Security-Policy",
               content: `
-                script-src 'self';
+                script-src 'self' https://accounts.google.com;
                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
                 font-src https://fonts.gstatic.com;
+                connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com;
+                frame-src https://accounts.google.com;
                 object-src 'none';
                 base-uri 'none';
               `,
@@ -48,7 +49,6 @@ export const HTMLPage = component<HTMLPageProps>(
           class: cssClasses,
           onmount: onMount,
           onunmount: onUnmount,
-          onclick: onClick,
           children: body,
         }),
       ],

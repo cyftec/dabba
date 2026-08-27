@@ -1,5 +1,4 @@
-import { blobToDataUrl, dataUrlToText } from "./media";
-import type { ClipboardEntry } from "./clipboard";
+import { blobToDataUrl } from "./media";
 
 export const SHARE_TARGET_CACHE = "dabba-share-target-v1";
 export const SHARE_TARGET_PAYLOAD_KEY = "/dabba/share-target/payload";
@@ -16,16 +15,6 @@ export type SharePayload = {
     dataUrl: string;
   }>;
 };
-
-function mediaTypeFromMime(type: string): string {
-  if (type.startsWith("image/")) {
-    return "Image";
-  }
-  if (type === "text/plain") {
-    return "Plain text";
-  }
-  return "Other type";
-}
 
 export async function sharePayloadFromFormData(
   formData: FormData,
@@ -71,45 +60,29 @@ export async function consumeSharePayload(): Promise<SharePayload | null> {
   return (await response.json()) as SharePayload;
 }
 
-export function clipboardEntryFromSharePayload(
+function dataUrlToBlob(dataUrl: string, mimeType: string): Blob {
+  const commaIndex = dataUrl.indexOf(",");
+  const base64 = commaIndex === -1 ? "" : dataUrl.slice(commaIndex + 1);
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  return new Blob([bytes], { type: mimeType });
+}
+
+export async function pushSharePayloadToDrive(
   payload: SharePayload,
-): ClipboardEntry | null {
+  pushFile: (fileBlob: Blob, mimeType: string) => Promise<void>,
+  pushText: (text: string) => Promise<void>,
+): Promise<void> {
   const textParts = [payload.title, payload.text, payload.url].filter(Boolean);
-  let text = textParts.join("\n");
-  let imgSrc = "";
-  let mediaType = "Plain text";
+  const sharedText = textParts.join("\n");
 
-  const imageFile = payload.files.find((file) =>
-    file.type.startsWith("image/"),
-  );
-  if (imageFile) {
-    imgSrc = imageFile.dataUrl;
-    mediaType = "Image";
+  for (const file of payload.files) {
+    const mimeType = file.type || "application/octet-stream";
+    await pushFile(dataUrlToBlob(file.dataUrl, mimeType), mimeType);
   }
 
-  const textFile = payload.files.find((file) => file.type.startsWith("text/"));
-  if (textFile) {
-    const fileText = dataUrlToText(textFile.dataUrl);
-    text = text ? `${text}\n${fileText}` : fileText;
-    if (!imageFile) {
-      mediaType = "Plain text";
-    }
+  if (sharedText) {
+    await pushText(sharedText);
   }
-
-  if (!imageFile && payload.files.length > 0 && !textFile) {
-    mediaType = mediaTypeFromMime(payload.files[0]!.type);
-  }
-
-  if (!text && !imgSrc) {
-    return null;
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    mediaType,
-    text,
-    imgSrc,
-  };
 }
 
 export async function handleShareTargetRequest(

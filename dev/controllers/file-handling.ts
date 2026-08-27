@@ -1,7 +1,4 @@
-import { blobToDataUrl } from "./media";
-import type { ClipboardEntry } from "./clipboard";
-
-type FileLaunchConsumer = (entries: ClipboardEntry[]) => void;
+type FileLaunchConsumer = (files: File[]) => void;
 
 type LaunchParams = {
   files?: FileSystemFileHandle[];
@@ -21,45 +18,16 @@ export function wasFileLaunchPending(): boolean {
   return pending;
 }
 
-const IMAGE_EXTENSION_PATTERN =
-  /\.(apng|avif|bmp|gif|heic|heif|ico|jpe?g|png|svg|webp)$/i;
-
-function isImageFile(file: File): boolean {
-  if (file.type.startsWith("image/")) {
-    return true;
-  }
-
-  return IMAGE_EXTENSION_PATTERN.test(file.name);
-}
-
-export async function clipboardEntryFromFile(
-  file: File,
-): Promise<ClipboardEntry | null> {
-  if (!isImageFile(file)) {
-    return null;
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    mediaType: "Image",
-    text: file.name,
-    imgSrc: await blobToDataUrl(file),
-  };
-}
-
-export async function clipboardEntriesFromFileHandles(
+export async function filesFromFileHandles(
   handles: FileSystemFileHandle[],
-): Promise<ClipboardEntry[]> {
-  const entries: ClipboardEntry[] = [];
+): Promise<File[]> {
+  const files: File[] = [];
 
   for (const handle of handles) {
-    const entry = await clipboardEntryFromFile(await handle.getFile());
-    if (entry) {
-      entries.push(entry);
-    }
+    files.push(await handle.getFile());
   }
 
-  return entries;
+  return files;
 }
 
 export function registerFileLaunchConsumer(consumer: FileLaunchConsumer): void {
@@ -76,9 +44,9 @@ export function registerFileLaunchConsumer(consumer: FileLaunchConsumer): void {
     }
 
     fileLaunchPending = true;
-    const entries = await clipboardEntriesFromFileHandles(handles);
-    if (entries.length > 0) {
-      consumer(entries);
+    const files = await filesFromFileHandles(handles);
+    if (files.length > 0) {
+      consumer(files);
     }
   });
 }

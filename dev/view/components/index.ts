@@ -1,2 +1,2 @@
-export * from "./ClipboardHistory";
+export * from "./DriveItemList";
 export * from "./HTMLPage";

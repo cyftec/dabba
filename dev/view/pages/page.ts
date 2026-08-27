@@ -1,39 +1,99 @@
 import { m } from "@cyftec/maya/core";
-import { signal } from "@cyftec/maya/signals";
+import { derive, signal } from "@cyftec/maya/signals";
 import { css } from "./assets/styles";
-import { ClipboardHistory } from "../components/ClipboardHistory";
-import { HTMLPage } from "../components/index";
+import { DriveItemList, HTMLPage } from "../components/index";
 import {
-  ClipboardEntry,
-  clipboardEntryFromSharePayload,
   clipboardErrorMessage,
+  connectDrive,
   consumeSharePayload,
-  prependHistory,
-  readClipboardEntry,
+  disconnectDrive,
+  loadAllItems,
+  pushFile,
+  pushSharePayloadToDrive,
+  pushText,
+  readClipboardForPush,
   registerFileLaunchConsumer,
   SHARE_TARGET_QUERY,
+  startPolling,
+  stopPolling,
+  type DabbaItem,
   wasFileLaunchPending,
 } from "@controllers";
 
-const clipboardHistory = signal<ClipboardEntry[]>([]);
-const clipboardError = signal("");
+const items = signal<DabbaItem[]>([]);
+const appError = signal("");
+const isLoading = signal(true);
+const isOnline = signal(navigator.onLine);
+const isBusy = signal(false);
 
-async function refreshClipboard() {
+const zonesDisabled = derive(
+  () => !isOnline.value || isBusy.value || isLoading.value,
+);
+
+let pageListeners: AbortController | undefined;
+
+async function refreshItems() {
+  items.value = await loadAllItems();
+}
+
+async function pushFiles(files: File[]) {
+  for (const file of files) {
+    await pushFile(file, file.type || "application/octet-stream");
+  }
+  await refreshItems();
+}
+
+async function handlePasteZoneClick() {
+  if (!isOnline.value || isBusy.value) {
+    return;
+  }
+
+  isBusy.value = true;
+  appError.value = "";
+
   try {
-    const entry = await readClipboardEntry();
-    clipboardError.value = "";
-
-    if (!entry) {
+    const payload = await readClipboardForPush();
+    if (!payload) {
+      appError.value = "Clipboard is empty or unsupported.";
       return;
     }
 
-    clipboardHistory.value = prependHistory(clipboardHistory.value, entry);
+    await pushFile(payload.fileBlob, payload.mimeType);
+    await refreshItems();
   } catch (err) {
-    console.error("Failed to read clipboard contents:", err);
-    const message = clipboardErrorMessage(err);
-    if (message) {
-      clipboardError.value = message;
-    }
+    console.error("Failed to push clipboard content:", err);
+    appError.value =
+      clipboardErrorMessage(err) ??
+      (err instanceof Error ? err.message : "Could not push clipboard content.");
+  } finally {
+    isBusy.value = false;
+  }
+}
+
+async function handleFileInputChange(event: Event) {
+  if (!isOnline.value || isBusy.value) {
+    return;
+  }
+
+  const input = event.currentTarget as HTMLInputElement;
+  const selectedFiles = [...(input.files ?? [])];
+  input.value = "";
+
+  if (!selectedFiles.length) {
+    return;
+  }
+
+  isBusy.value = true;
+  appError.value = "";
+
+  try {
+    await pushFiles(selectedFiles);
+  } catch (err) {
+    console.error("Failed to push file:", err);
+    appError.value =
+      err instanceof Error ? err.message : "Could not push file to Drive.";
+  } finally {
+    isBusy.value = false;
   }
 }
 
@@ -44,106 +104,202 @@ async function consumeSharedContent() {
 
   try {
     const payload = await consumeSharePayload();
-    clipboardError.value = "";
+    appError.value = "";
 
     if (payload) {
-      const entry = clipboardEntryFromSharePayload(payload);
-      if (entry) {
-        clipboardHistory.value = prependHistory(clipboardHistory.value, entry);
-      }
+      await pushSharePayloadToDrive(payload, pushFile, pushText);
+      await refreshItems();
     }
 
     history.replaceState({}, "", location.pathname);
     return true;
   } catch (err) {
-    console.error("Failed to read shared content:", err);
-    clipboardError.value = "Could not load shared content.";
+    console.error("Failed to push shared content:", err);
+    appError.value = "Could not push shared content to Drive.";
     return true;
   }
 }
 
-let pageListeners: AbortController | undefined;
+async function initializeDrive() {
+  if (!isOnline.value) {
+    isLoading.value = false;
+    return;
+  }
 
-function addEntriesToHistory(entries: ClipboardEntry[]) {
-  clipboardError.value = "";
+  isLoading.value = true;
+  appError.value = "";
 
-  for (const entry of entries) {
-    clipboardHistory.value = prependHistory(clipboardHistory.value, entry);
+  try {
+    await connectDrive();
+    await refreshItems();
+
+    const consumedShare = await consumeSharedContent();
+    if (!consumedShare && !wasFileLaunchPending()) {
+      // no-op: share and file launch flows push on their own callbacks
+    }
+
+    startPolling(() => {
+      void refreshItems().catch((err) => {
+        console.error("Failed to refresh Drive items:", err);
+      });
+    });
+  } catch (err) {
+    console.error("Failed to initialize Drive sync:", err);
+    appError.value =
+      err instanceof Error ? err.message : "Could not connect to Google Drive.";
+  } finally {
+    isLoading.value = false;
   }
 }
 
-registerFileLaunchConsumer((entries) => {
-  addEntriesToHistory(entries);
+registerFileLaunchConsumer((files) => {
+  if (!isOnline.value) {
+    appError.value = "Dabba requires an internet connection.";
+    return;
+  }
+
+  isBusy.value = true;
+  appError.value = "";
+
+  void (async () => {
+    try {
+      await pushFiles(files);
+    } catch (err) {
+      console.error("Failed to push opened file:", err);
+      appError.value =
+        err instanceof Error ? err.message : "Could not push opened file.";
+    } finally {
+      isBusy.value = false;
+    }
+  })();
 });
 
 const onPageMount = () => {
   pageListeners = new AbortController();
+  const { signal: abortSignal } = pageListeners;
 
-  void (async () => {
-    const consumedShare = await consumeSharedContent();
-    if (!consumedShare && !wasFileLaunchPending()) {
-      await refreshClipboard();
-    }
-  })();
+  const setOnline = () => {
+    isOnline.value = true;
+    void initializeDrive();
+  };
+  const setOffline = () => {
+    isOnline.value = false;
+    stopPolling();
+    appError.value = "Dabba requires an internet connection.";
+  };
 
-  window.addEventListener(
-    "pageshow",
-    () => {
-      void (async () => {
-        const consumedShare = await consumeSharedContent();
-        if (!consumedShare) {
-          await refreshClipboard();
-        }
-      })();
-    },
-    { signal: pageListeners.signal },
-  );
+  window.addEventListener("online", setOnline, { signal: abortSignal });
+  window.addEventListener("offline", setOffline, { signal: abortSignal });
+
+  void initializeDrive();
 };
 
 const onPageUnmount = () => {
+  stopPolling();
   pageListeners?.abort();
   pageListeners = undefined;
+  void disconnectDrive();
 };
 
 export default HTMLPage({
   onMount: onPageMount,
   onUnmount: onPageUnmount,
-  onClick: () => {
-    void refreshClipboard();
-  },
   body: m.Section({
     class: css("history"),
-    "aria-labelledby": "clipboard-history-title",
+    "aria-labelledby": "dabba-title",
     children: [
       m.H1({
-        id: "clipboard-history-title",
+        id: "dabba-title",
         class: css("ma2"),
         children: "Dabba",
       }),
       m.P({
         class: css("history-hint"),
         children:
-          "Tap anywhere to refresh clipboard history, share to Dabba from mobile apps, or use Open With on Mac and other desktops to open image files in Dabba.",
+          "Paste clipboard content or open a file to share it across your devices via Google Drive.",
       }),
       m.If({
-        subject: clipboardError,
+        subject: isOnline,
+        isFalsy: () =>
+          m.P({
+            class: css("offline-banner"),
+            role: "alert",
+            children: "Dabba requires an internet connection.",
+          }),
+      }),
+      m.If({
+        subject: appError,
         isTruthy: () =>
           m.P({
             class: css("history-error"),
             role: "alert",
-            children: clipboardError!,
+            children: appError!,
           }),
       }),
+      m.Div({
+        class: css("input-row"),
+        children: [
+          m.Button({
+            type: "button",
+            class: css("paste-zone"),
+            disabled: zonesDisabled,
+            onclick: () => {
+              void handlePasteZoneClick();
+            },
+            children: [
+              m.P({
+                class: css("zone-label"),
+                children: "Paste clipboard content",
+              }),
+              m.P({
+                class: css("zone-hint"),
+                children: "Click here, then allow clipboard access to upload.",
+              }),
+            ],
+          }),
+          m.Label({
+            class: css("file-zone"),
+            children: [
+              m.P({
+                class: css("zone-label"),
+                children: "Open a file to share",
+              }),
+              m.P({
+                class: css("zone-hint"),
+                children: "Choose a file to push to Google Drive.",
+              }),
+              m.Input({
+                type: "file",
+                accept: "*/*",
+                multiple: true,
+                class: css("hidden-input"),
+                disabled: zonesDisabled,
+                onchange: handleFileInputChange,
+              }),
+            ],
+          }),
+        ],
+      }),
       m.If({
-        subject: clipboardHistory.length(),
-        isFalsy: () =>
+        subject: isLoading,
+        isTruthy: () =>
           m.P({
             class: css("history-empty"),
-            children: "No clipboard items yet. Copy something, then tap here.",
+            children: "Loading items from Google Drive...",
           }),
-        isTruthy: () =>
-          ClipboardHistory({
-            history: clipboardHistory,
+        isFalsy: () =>
+          m.If({
+            subject: items.length(),
+            isFalsy: () =>
+              m.P({
+                class: css("history-empty"),
+                children: "No shared items yet. Paste or upload something above.",
+              }),
+            isTruthy: () =>
+              DriveItemList({
+                items: items,
+                disabled: zonesDisabled,
+              }),
           }),
       }),
     ],
