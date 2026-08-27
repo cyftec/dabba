@@ -19,14 +19,10 @@ type DriveFileMetadata = {
   webContentLink?: string;
 };
 
-const POLL_INTERVAL_MS = 5000;
-
 const socket = new DriveSocket({ clientId: GOOGLE_CLIENT_ID }, [
   "webContentLink",
 ]);
 
-let pollTimer: ReturnType<typeof setInterval> | undefined;
-let lastKnownIds = "";
 let textCache = new Map<string, string>();
 
 function assertOnline(): void {
@@ -41,9 +37,7 @@ function isTextItem(item: { mimeType: string; name: string }): boolean {
   );
 }
 
-async function metadataToDabbaItem(
-  metadata: DriveFileMetadata,
-): Promise<DabbaItem> {
+function metadataToDabbaItem(metadata: DriveFileMetadata): DabbaItem {
   const item: DabbaItem = {
     id: metadata.id,
     name: metadata.name,
@@ -53,23 +47,34 @@ async function metadataToDabbaItem(
     isText: isTextItem(metadata),
   };
 
-  if (item.isText) {
-    const cached = textCache.get(item.id);
-    if (cached !== undefined) {
-      item.text = cached;
-    } else {
-      const message = await socket.getById(item.id);
-      const text = await message.fileBlob.text();
-      textCache.set(item.id, text);
-      item.text = text;
-    }
+  const cached = textCache.get(item.id);
+  if (cached !== undefined) {
+    item.text = cached;
   }
 
   return item;
 }
 
-function metadataFingerprint(metadata: DriveFileMetadata[]): string {
-  return metadata.map((item) => `${item.id}:${item.createdTime}`).join("|");
+async function enrichItemWithFileBlob(item: DabbaItem): Promise<DabbaItem> {
+  if (!item.isText) {
+    return item;
+  }
+
+  const cached = textCache.get(item.id);
+  if (cached !== undefined) {
+    return { ...item, text: cached };
+  }
+
+  const message = await socket.getById(item.id);
+  const text = await message.fileBlob.text();
+  textCache.set(item.id, text);
+  return { ...item, text };
+}
+
+async function fetchMetadata(): Promise<DriveFileMetadata[]> {
+  return (await socket.receive({
+    as: "file-message-metadata",
+  })) as DriveFileMetadata[];
 }
 
 export async function connectDrive(): Promise<void> {
@@ -78,7 +83,6 @@ export async function connectDrive(): Promise<void> {
 }
 
 export async function disconnectDrive(): Promise<void> {
-  stopPolling();
   await socket.disconnect();
 }
 
@@ -86,56 +90,40 @@ export function isDriveAuthenticated(): boolean {
   return socket.isAuthenticated();
 }
 
-export async function loadAllItems(): Promise<DabbaItem[]> {
+export async function loadMetadataItems(): Promise<DabbaItem[]> {
   assertOnline();
-  const metadata = (await socket.receive({
-    as: "file-message-metadata",
-  })) as DriveFileMetadata[];
-  lastKnownIds = metadataFingerprint(metadata);
-
-  const items: DabbaItem[] = [];
-  for (const entry of metadata) {
-    items.push(await metadataToDabbaItem(entry));
-  }
-  return items;
+  const metadata = await fetchMetadata();
+  return metadata.map(metadataToDabbaItem);
 }
 
-export async function pushFile(fileBlob: Blob, mimeType: string): Promise<void> {
+export function enrichItemsWithFileBlob(
+  items: DabbaItem[],
+  onItemEnriched: (item: DabbaItem) => void,
+): void {
+  for (const item of items) {
+    if (!item.isText || item.text !== undefined) {
+      continue;
+    }
+
+    void enrichItemWithFileBlob(item)
+      .then(onItemEnriched)
+      .catch((err) => {
+        console.error(`Failed to load file data for ${item.id}:`, err);
+      });
+  }
+}
+
+export async function pushFile(
+  fileBlob: Blob,
+  mimeType: string,
+): Promise<void> {
   assertOnline();
   if (!socket.isAuthenticated()) {
     await connectDrive();
   }
   await socket.push(fileBlob, { mimeType });
-  lastKnownIds = "";
 }
 
 export async function pushText(text: string): Promise<void> {
   await pushFile(new Blob([text], { type: "text/plain" }), "text/plain");
-}
-
-export function startPolling(onChange: () => void): void {
-  stopPolling();
-  pollTimer = setInterval(() => {
-    if (!navigator.onLine || !socket.isAuthenticated()) {
-      return;
-    }
-
-    void (async () => {
-      const metadata = (await socket.receive({
-    as: "file-message-metadata",
-  })) as DriveFileMetadata[];
-      const fingerprint = metadataFingerprint(metadata);
-      if (fingerprint !== lastKnownIds) {
-        lastKnownIds = fingerprint;
-        onChange();
-      }
-    })();
-  }, POLL_INTERVAL_MS);
-}
-
-export function stopPolling(): void {
-  if (pollTimer !== undefined) {
-    clearInterval(pollTimer);
-    pollTimer = undefined;
-  }
 }

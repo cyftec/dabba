@@ -7,15 +7,15 @@ import {
   connectDrive,
   consumeSharePayload,
   disconnectDrive,
-  loadAllItems,
+  enrichItemsWithFileBlob,
+  isDriveAuthenticated,
+  loadMetadataItems,
   pushFile,
   pushSharePayloadToDrive,
   pushText,
   readClipboardForPush,
   registerFileLaunchConsumer,
   SHARE_TARGET_QUERY,
-  startPolling,
-  stopPolling,
   type DabbaItem,
   wasFileLaunchPending,
 } from "@controllers";
@@ -31,9 +31,97 @@ const zonesDisabled = derive(
 );
 
 let pageListeners: AbortController | undefined;
+let isConnecting = false;
+let initialLoadActive = true;
+let pendingInitialFocusRefresh = false;
+let loadInFlight = false;
+
+function replaceItem(updated: DabbaItem) {
+  items.value = items.value.map((existing) =>
+    existing.id === updated.id ? updated : existing,
+  );
+}
+
+function startIncrementalFileLoad(metadataItems: DabbaItem[]) {
+  enrichItemsWithFileBlob(metadataItems, replaceItem);
+}
+
+async function loadMetadataAndEnrich() {
+  const metadataItems = await loadMetadataItems();
+  items.value = metadataItems;
+  isLoading.value = false;
+  startIncrementalFileLoad(metadataItems);
+}
+
+async function loadDriveContent() {
+  if (!isOnline.value) {
+    isLoading.value = false;
+    return;
+  }
+
+  if (loadInFlight) {
+    if (initialLoadActive) {
+      pendingInitialFocusRefresh = true;
+    }
+    return;
+  }
+
+  loadInFlight = true;
+  isLoading.value = true;
+  appError.value = "";
+
+  try {
+    if (!isDriveAuthenticated()) {
+      isConnecting = true;
+      try {
+        await connectDrive();
+      } catch (err) {
+        console.error("Failed to connect to Google Drive:", err);
+        appError.value =
+          err instanceof Error
+            ? err.message
+            : "Could not connect to Google Drive.";
+        isLoading.value = false;
+        return;
+      } finally {
+        isConnecting = false;
+      }
+    }
+
+    await loadMetadataAndEnrich();
+  } catch (err) {
+    console.error("Failed to load Drive items:", err);
+    appError.value =
+      err instanceof Error ? err.message : "Could not load items from Drive.";
+    isLoading.value = false;
+  } finally {
+    loadInFlight = false;
+  }
+}
+
+async function reloadContent() {
+  if (isLoading.value || isBusy.value) {
+    return;
+  }
+
+  await loadDriveContent();
+}
+
+async function refreshOnInitialLoadFocus() {
+  if (!initialLoadActive || !isOnline.value || isBusy.value) {
+    return;
+  }
+
+  if (isConnecting || isLoading.value || loadInFlight) {
+    pendingInitialFocusRefresh = true;
+    return;
+  }
+
+  await loadDriveContent();
+}
 
 async function refreshItems() {
-  items.value = await loadAllItems();
+  await loadMetadataAndEnrich();
 }
 
 async function pushFiles(files: File[]) {
@@ -123,35 +211,32 @@ async function consumeSharedContent() {
 }
 
 async function initializeDrive() {
+  initialLoadActive = true;
+  pendingInitialFocusRefresh = false;
+
   if (!isOnline.value) {
     isLoading.value = false;
+    initialLoadActive = false;
     return;
   }
 
-  isLoading.value = true;
-  appError.value = "";
+  await loadDriveContent();
 
   try {
-    await connectDrive();
-    await refreshItems();
-
     const consumedShare = await consumeSharedContent();
     if (!consumedShare && !wasFileLaunchPending()) {
       // no-op: share and file launch flows push on their own callbacks
     }
-
-    startPolling(() => {
-      void refreshItems().catch((err) => {
-        console.error("Failed to refresh Drive items:", err);
-      });
-    });
   } catch (err) {
-    console.error("Failed to initialize Drive sync:", err);
-    appError.value =
-      err instanceof Error ? err.message : "Could not connect to Google Drive.";
-  } finally {
-    isLoading.value = false;
+    console.error("Failed to consume shared content:", err);
   }
+
+  if (pendingInitialFocusRefresh) {
+    pendingInitialFocusRefresh = false;
+    await loadDriveContent();
+  }
+
+  initialLoadActive = false;
 }
 
 registerFileLaunchConsumer((files) => {
@@ -186,18 +271,31 @@ const onPageMount = () => {
   };
   const setOffline = () => {
     isOnline.value = false;
-    stopPolling();
     appError.value = "Dabba requires an internet connection.";
+  };
+
+  const onInitialLoadFocus = () => {
+    void refreshOnInitialLoadFocus();
   };
 
   window.addEventListener("online", setOnline, { signal: abortSignal });
   window.addEventListener("offline", setOffline, { signal: abortSignal });
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (document.visibilityState === "visible") {
+        onInitialLoadFocus();
+      }
+    },
+    { signal: abortSignal },
+  );
+  window.addEventListener("pageshow", onInitialLoadFocus, { signal: abortSignal });
+  window.addEventListener("focus", onInitialLoadFocus, { signal: abortSignal });
 
   void initializeDrive();
 };
 
 const onPageUnmount = () => {
-  stopPolling();
   pageListeners?.abort();
   pageListeners = undefined;
   void disconnectDrive();
@@ -211,10 +309,24 @@ export default HTMLPage({
     class: css("history"),
     "aria-labelledby": "dabba-title",
     children: [
-      m.H1({
-        id: "dabba-title",
-        class: css("mv3"),
-        children: "Dabba",
+      m.Div({
+        class: css("hero-row"),
+        children: [
+          m.H1({
+            id: "dabba-title",
+            class: css("hero-title"),
+            children: "Dabba",
+          }),
+          m.Button({
+            type: "button",
+            class: css("refresh-button"),
+            disabled: isLoading,
+            onclick: () => {
+              void reloadContent();
+            },
+            children: "Reload content",
+          }),
+        ],
       }),
       m.P({
         class: css("history-hint"),
