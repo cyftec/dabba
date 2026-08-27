@@ -176,7 +176,7 @@ async function onFileInputChange(event: Event) {
   } catch (err) {
     console.error("Failed to push file:", err);
     appError.value =
-      err instanceof Error ? err.message : "Could not push file to Drive.";
+      err instanceof Error ? err.message : "Could not push the file to Drive.";
   } finally {
     isBusy.value = false;
   }
