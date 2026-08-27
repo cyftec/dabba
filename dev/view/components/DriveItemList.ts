@@ -1,5 +1,5 @@
 import { component, m } from "@cyftec/maya/core";
-import type { Signal } from "@cyftec/maya/signals";
+import { derive, type Signal } from "@cyftec/maya/signals";
 import { css } from "../pages/assets/styles";
 import type { DabbaItem } from "@controllers";
 
@@ -25,7 +25,7 @@ export const DriveItemList = component<DriveItemListProps>(
               isTruthy: () => [
                 m.P({
                   class: css("item-text"),
-                  children: text ?? "",
+                  children: derive(() => item.value.text || ""),
                 }),
                 m.Div({
                   class: css("item-actions"),
@@ -47,7 +47,9 @@ export const DriveItemList = component<DriveItemListProps>(
                     }),
                     m.A({
                       class: css("item-button"),
-                      href: disabled.if.truthy().then(undefined, webContentLink),
+                      href: disabled.if
+                        .truthy()
+                        .then(undefined, webContentLink),
                       download: name,
                       target: "_blank",
                       rel: "noopener",

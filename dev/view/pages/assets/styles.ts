@@ -22,6 +22,8 @@ export const mediaConstraintsOverrides = {
 
 export const atomicClassOverrides = {
   default: {
+    theme: "{ color: #e44400 }",
+    "bg-theme": "{ background-color: #e44400 }",
     "special-wrap": "{ white-space: pre-wrap; overflow-wrap: anywhere; }",
     "hidden-input":
       "{ position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }",
@@ -35,21 +37,21 @@ type AppAtomicClassName = AppAtomicClassNames<
 
 export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   history: "mw7 ma0 pa3 center min-vh-100",
-  "hero-row": "flex justify-between items-center mv3 mh0",
+  "hero-row": "flex justify-between items-center mt3 mb2 mh0",
   "hero-title": "ma0 mr3",
   "refresh-button": "ma0 pa3 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
-  "history-hint": "mv3 mh0 mid-gray f5",
+  "history-hint": "mt1 mb4 mh0 mid-gray f5",
   "history-error": "mh3 pa3 br3 red bg-light-red",
   "history-empty": "ma0 pa3 ba bw1 br3 b--dashed b--silver gray",
-  "offline-banner": "mh3 mb3 pa3 br3 white bg-dark-red",
-  "input-row": "flex mh0 mv3 mb3 pa0 list",
+  "offline-banner": "mh0 mv4 pa3 br3 white bg-theme",
+  "input-row": "flex mh0 mv4 mb3 pa0 list",
   "paste-zone":
     "flex-auto ma0 mr2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "file-zone":
     "flex-auto ma0 ml2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
-  "item-grid": "flex flex-column mv3 mh0 pa0 list",
+  "item-grid": "flex flex-column mv4 mh0 pa0 list",
   "item-tile": "mt0 mh0 mb3 pa3 f6 br3 bg-near-white",
   "item-text": "ma0 mb3 special-wrap f4",
   "item-file-header": "flex justify-between mb3 f6",

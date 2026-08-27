@@ -1,7 +1,12 @@
 import { m } from "@cyftec/maya/core";
 import { derive, signal } from "@cyftec/maya/signals";
 import { css } from "./assets/styles";
-import { DriveItemList, HTMLPage } from "../components/index";
+import {
+  ContentInput,
+  DriveItemList,
+  EmptyListMessage,
+  HTMLPage,
+} from "../components/index";
 import {
   clipboardErrorMessage,
   connectDrive,
@@ -36,21 +41,15 @@ let initialLoadActive = true;
 let pendingInitialFocusRefresh = false;
 let loadInFlight = false;
 
-function replaceItem(updated: DabbaItem) {
-  items.value = items.value.map((existing) =>
-    existing.id === updated.id ? updated : existing,
-  );
-}
-
-function startIncrementalFileLoad(metadataItems: DabbaItem[]) {
-  enrichItemsWithFileBlob(metadataItems, replaceItem);
-}
-
-async function loadMetadataAndEnrich() {
+async function refreshItems() {
   const metadataItems = await loadMetadataItems();
   items.value = metadataItems;
   isLoading.value = false;
-  startIncrementalFileLoad(metadataItems);
+  enrichItemsWithFileBlob(metadataItems, (updated: DabbaItem) => {
+    items.value = items.value.map((existing) =>
+      existing.id === updated.id ? updated : existing,
+    );
+  });
 }
 
 async function loadDriveContent() {
@@ -88,7 +87,7 @@ async function loadDriveContent() {
       }
     }
 
-    await loadMetadataAndEnrich();
+    await refreshItems();
   } catch (err) {
     console.error("Failed to load Drive items:", err);
     appError.value =
@@ -120,10 +119,6 @@ async function refreshOnInitialLoadFocus() {
   await loadDriveContent();
 }
 
-async function refreshItems() {
-  await loadMetadataAndEnrich();
-}
-
 async function pushFiles(files: File[]) {
   for (const file of files) {
     await pushFile(file, file.type || "application/octet-stream");
@@ -131,7 +126,7 @@ async function pushFiles(files: File[]) {
   await refreshItems();
 }
 
-async function handlePasteZoneClick() {
+async function onPasteZoneTap() {
   if (!isOnline.value || isBusy.value) {
     return;
   }
@@ -160,7 +155,7 @@ async function handlePasteZoneClick() {
   }
 }
 
-async function handleFileInputChange(event: Event) {
+async function onFileInputChange(event: Event) {
   if (!isOnline.value || isBusy.value) {
     return;
   }
@@ -289,7 +284,9 @@ const onPageMount = () => {
     },
     { signal: abortSignal },
   );
-  window.addEventListener("pageshow", onInitialLoadFocus, { signal: abortSignal });
+  window.addEventListener("pageshow", onInitialLoadFocus, {
+    signal: abortSignal,
+  });
   window.addEventListener("focus", onInitialLoadFocus, { signal: abortSignal });
 
   void initializeDrive();
@@ -321,9 +318,7 @@ export default HTMLPage({
             type: "button",
             class: css("refresh-button"),
             disabled: isLoading,
-            onclick: () => {
-              void reloadContent();
-            },
+            onclick: reloadContent,
             children: "Reload content",
           }),
         ],
@@ -351,66 +346,18 @@ export default HTMLPage({
             children: appError!,
           }),
       }),
-      m.Div({
-        class: css("input-row"),
-        children: [
-          m.Button({
-            type: "button",
-            class: css("paste-zone"),
-            disabled: zonesDisabled,
-            onclick: () => {
-              void handlePasteZoneClick();
-            },
-            children: [
-              m.P({
-                class: css("zone-label"),
-                children: "Paste clipboard content",
-              }),
-              m.P({
-                class: css("zone-hint"),
-                children: "Click here, then allow clipboard access to upload.",
-              }),
-            ],
-          }),
-          m.Label({
-            class: css("file-zone"),
-            children: [
-              m.P({
-                class: css("zone-label"),
-                children: "Open a file to share",
-              }),
-              m.P({
-                class: css("zone-hint"),
-                children: "Choose a file to push to Google Drive.",
-              }),
-              m.Input({
-                type: "file",
-                accept: "*/*",
-                multiple: true,
-                class: css("hidden-input"),
-                disabled: zonesDisabled,
-                onchange: handleFileInputChange,
-              }),
-            ],
-          }),
-        ],
+      ContentInput({
+        zonesDisabled,
+        onPasteZoneTap,
+        onFileInputChange,
       }),
       m.If({
         subject: isLoading,
-        isTruthy: () =>
-          m.P({
-            class: css("history-empty"),
-            children: "Loading items from Google Drive...",
-          }),
+        isTruthy: () => EmptyListMessage({ isListLoading: true }),
         isFalsy: () =>
           m.If({
             subject: items.length(),
-            isFalsy: () =>
-              m.P({
-                class: css("history-empty"),
-                children:
-                  "No shared items yet. Paste or upload something above.",
-              }),
+            isFalsy: () => EmptyListMessage({ isListLoading: false }),
             isTruthy: () =>
               DriveItemList({
                 items: items,
