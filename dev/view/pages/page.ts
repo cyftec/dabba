@@ -64,7 +64,9 @@ async function handlePasteZoneClick() {
     console.error("Failed to push clipboard content:", err);
     appError.value =
       clipboardErrorMessage(err) ??
-      (err instanceof Error ? err.message : "Could not push clipboard content.");
+      (err instanceof Error
+        ? err.message
+        : "Could not push clipboard content.");
   } finally {
     isBusy.value = false;
   }
@@ -204,13 +206,14 @@ const onPageUnmount = () => {
 export default HTMLPage({
   onMount: onPageMount,
   onUnmount: onPageUnmount,
+  cssClasses: "ma0",
   body: m.Section({
     class: css("history"),
     "aria-labelledby": "dabba-title",
     children: [
       m.H1({
         id: "dabba-title",
-        class: css("ma2"),
+        class: css("mv3"),
         children: "Dabba",
       }),
       m.P({
@@ -293,7 +296,8 @@ export default HTMLPage({
             isFalsy: () =>
               m.P({
                 class: css("history-empty"),
-                children: "No shared items yet. Paste or upload something above.",
+                children:
+                  "No shared items yet. Paste or upload something above.",
               }),
             isTruthy: () =>
               DriveItemList({
