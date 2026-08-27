@@ -3,7 +3,7 @@ import { WebAppManifest } from "web-app-manifest";
 const assetsPath = "/assets";
 const imagesPath = `${assetsPath}/images`;
 
-type ChromeOnlyPwaManifest = {
+type ChromeShareTargetManifest = {
   share_target: {
     action: string;
     method: string;
@@ -18,14 +18,9 @@ type ChromeOnlyPwaManifest = {
       }>;
     };
   };
-  file_handlers: Array<{
-    action: string;
-    name: string;
-    accept: Record<string, string[]>;
-  }>;
 };
 
-const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
+const manifest: WebAppManifest & ChromeShareTargetManifest = {
   short_name: "Dabba",
   name: "Dabba",
   icons: [
@@ -45,9 +40,6 @@ const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
   display: "standalone",
   theme_color: "#ee4440",
   background_color: "#ffffff",
-  launch_handler: {
-    client_mode: "focus-existing",
-  },
   share_target: {
     action: "/share",
     method: "POST",
@@ -64,15 +56,6 @@ const manifest: WebAppManifest & ChromeOnlyPwaManifest = {
       ],
     },
   },
-  file_handlers: [
-    {
-      action: "/",
-      name: "Dabba",
-      accept: {
-        "*/*": [".*"],
-      },
-    },
-  ],
 };
 
 export default manifest;

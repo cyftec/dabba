@@ -43,7 +43,6 @@ export const ContentInput = component<ContentInputProps>(
             m.Input({
               type: "file",
               accept: "*/*",
-              multiple: true,
               class: css("hidden-input"),
               disabled: zonesDisabled,
               onchange: onFileInputChange,

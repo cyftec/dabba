@@ -1,3 +1,4 @@
+import { DriveSocket } from "@cyftec/drive-socket";
 import { m } from "@cyftec/maya/core";
 import { derive, signal } from "@cyftec/maya/signals";
 import { css } from "./assets/styles";
@@ -7,47 +8,212 @@ import {
   EmptyListMessage,
   HTMLPage,
 } from "../components/index";
-import {
-  clipboardErrorMessage,
-  connectDrive,
-  consumeSharePayload,
-  disconnectDrive,
-  enrichItemsWithFileBlob,
-  isDriveAuthenticated,
-  loadMetadataItems,
-  pushFile,
-  pushSharePayloadToDrive,
-  pushText,
-  readClipboardForPush,
-  registerFileLaunchConsumer,
-  SHARE_TARGET_QUERY,
-  type DabbaItem,
-  wasFileLaunchPending,
-} from "@controllers";
+
+const GOOGLE_CLIENT_ID =
+  "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com";
+
+const socket = new DriveSocket({ clientId: GOOGLE_CLIENT_ID }, [
+  "webContentLink",
+]);
+
+type DabbaItem = {
+  id: string;
+  name: string;
+  mimeType: string;
+  createdTime: string;
+  webContentLink: string;
+};
+
+class ContentPush {
+  private static readonly shareCache = "dabba-share-target-v1";
+  private static readonly shareKey = "/dabba/share-target/payload";
+  private static readonly shareQuery = "share-target";
+
+  readonly busy = signal(false);
+
+  constructor(private onPushed: () => Promise<void>) {}
+
+  async consumePendingShare(): Promise<string | undefined> {
+    if (!location.search.includes(ContentPush.shareQuery)) {
+      return;
+    }
+
+    history.replaceState({}, "", location.pathname);
+
+    const cache = await caches.open(ContentPush.shareCache);
+    const response = await cache.match(ContentPush.shareKey);
+    if (!response) {
+      return;
+    }
+
+    await cache.delete(ContentPush.shareKey);
+
+    const payload = (await response.json()) as {
+      title: string;
+      text: string;
+      url: string;
+      files: Array<{ name: string; type: string; dataUrl: string }>;
+    };
+
+    const sharedFile = payload.files[0];
+    if (sharedFile) {
+      const error = await this.fromFile(this.fileFromShare(sharedFile));
+      if (error) {
+        return error;
+      }
+    }
+
+    const text = [payload.title, payload.text, payload.url]
+      .filter(Boolean)
+      .join("\n");
+    if (!text) {
+      return;
+    }
+
+    return this.push(new Blob([text], { type: "text/plain" }), "text/plain");
+  }
+
+  async fromClipboard(): Promise<string | undefined> {
+    if (this.busy.value) {
+      return;
+    }
+
+    try {
+      const payload = await this.readClipboard();
+      if (!payload) {
+        return "Clipboard is empty or unsupported.";
+      }
+
+      return await this.push(payload.fileBlob, payload.mimeType);
+    } catch (err) {
+      console.error("Failed to push clipboard content:", err);
+      return (
+        this.clipboardError(err) ??
+        (err instanceof Error
+          ? err.message
+          : "Could not push clipboard content.")
+      );
+    }
+  }
+
+  async fromFile(file: File): Promise<string | undefined> {
+    if (this.busy.value) {
+      return;
+    }
+
+    return this.push(file, file.type || "application/octet-stream");
+  }
+
+  private async push(
+    fileBlob: Blob,
+    mimeType: string,
+  ): Promise<string | undefined> {
+    if (!navigator.onLine) {
+      return "Dabba requires an internet connection.";
+    }
+
+    this.busy.value = true;
+
+    try {
+      if (!socket.isAuthenticated()) {
+        await socket.connect();
+      }
+
+      await socket.push(fileBlob, { mimeType });
+      await this.onPushed();
+    } catch (err) {
+      console.error("Failed to push content:", err);
+      return err instanceof Error ? err.message : "Could not push content.";
+    } finally {
+      this.busy.value = false;
+    }
+  }
+
+  private async readClipboard(): Promise<{
+    fileBlob: Blob;
+    mimeType: string;
+  } | null> {
+    const clipboardContents = await navigator.clipboard.read();
+    if (!clipboardContents.length) {
+      return null;
+    }
+
+    for (const item of clipboardContents) {
+      const imageType = item.types.find((type) => type.startsWith("image/"));
+      if (imageType) {
+        return {
+          fileBlob: await item.getType(imageType),
+          mimeType: imageType,
+        };
+      }
+
+      if (item.types.includes("text/plain")) {
+        return {
+          fileBlob: await item.getType("text/plain"),
+          mimeType: "text/plain",
+        };
+      }
+    }
+
+    return null;
+  }
+
+  private clipboardError(err: unknown): string | undefined {
+    if (!(err instanceof Error)) {
+      return undefined;
+    }
+
+    if (err.name === "NotAllowedError") {
+      return "Permission to access clipboard was denied. Grant clipboard access in your browser settings.";
+    }
+
+    if (err.name === "SecurityError") {
+      return "Clipboard access is restricted (for example, when not served over HTTPS).";
+    }
+
+    return undefined;
+  }
+
+  private fileFromShare(file: {
+    name: string;
+    type: string;
+    dataUrl: string;
+  }): File {
+    const commaIndex = file.dataUrl.indexOf(",");
+    const base64 =
+      commaIndex === -1 ? "" : file.dataUrl.slice(commaIndex + 1);
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    return new File([bytes], file.name, {
+      type: file.type || "application/octet-stream",
+    });
+  }
+}
 
 const items = signal<DabbaItem[]>([]);
 const appError = signal("");
 const isOnline = signal(navigator.onLine);
 const isBusy = signal(true);
 
-const zonesDisabled = derive(() => !isOnline.value || isBusy.value);
-const isListLoading = derive(() => isBusy.value && items.value.length === 0);
-
 let pageListeners: AbortController | undefined;
-let isConnecting = false;
-let initialLoadActive = false;
 let loadPromise: Promise<void> | null = null;
 
 async function refreshItems() {
-  const metadataItems = await loadMetadataItems();
-  items.value = metadataItems;
-  isBusy.value = false;
-  enrichItemsWithFileBlob(metadataItems, (updated: DabbaItem) => {
-    items.value = items.value.map((existing) =>
-      existing.id === updated.id ? updated : existing,
-    );
-  });
+  const metadataList = await socket.receive({ as: "file-message-metadata" });
+  items.value = metadataList.map((metadata) => ({
+    id: metadata.id,
+    name: metadata.name,
+    mimeType: metadata.mimeType,
+    createdTime: metadata.createdTime,
+    webContentLink: metadata.webContentLink ?? "",
+  }));
 }
+
+const contentPush = new ContentPush(refreshItems);
+
+const zonesDisabled = derive(
+  () => !isOnline.value || isBusy.value || contentPush.busy.value,
+);
+const isListLoading = derive(() => isBusy.value && items.value.length === 0);
 
 async function loadDriveContent(): Promise<void> {
   if (!isOnline.value) {
@@ -64,21 +230,8 @@ async function loadDriveContent(): Promise<void> {
     appError.value = "";
 
     try {
-      if (!isDriveAuthenticated()) {
-        isConnecting = true;
-        try {
-          await connectDrive();
-        } catch (err) {
-          console.error("Failed to connect to Google Drive:", err);
-          appError.value =
-            err instanceof Error
-              ? err.message
-              : "Could not connect to Google Drive.";
-          isBusy.value = false;
-          return;
-        } finally {
-          isConnecting = false;
-        }
+      if (!socket.isAuthenticated()) {
+        await socket.connect();
       }
 
       await refreshItems();
@@ -86,6 +239,7 @@ async function loadDriveContent(): Promise<void> {
       console.error("Failed to load Drive items:", err);
       appError.value =
         err instanceof Error ? err.message : "Could not load items from Drive.";
+    } finally {
       isBusy.value = false;
     }
   })();
@@ -98,188 +252,66 @@ async function loadDriveContent(): Promise<void> {
 }
 
 async function reloadContent() {
-  if (isBusy.value) {
+  if (isBusy.value || contentPush.busy.value) {
     return;
   }
 
   await loadDriveContent();
-}
-
-async function refreshOnInitialLoadFocus() {
-  if (!initialLoadActive || !isOnline.value) {
-    return;
-  }
-
-  if (loadPromise) {
-    await loadPromise;
-    return;
-  }
-
-  if (isBusy.value) {
-    return;
-  }
-
-  await loadDriveContent();
-}
-
-async function pushFiles(files: File[]) {
-  for (const file of files) {
-    await pushFile(file, file.type || "application/octet-stream");
-  }
-  await refreshItems();
-}
-
-async function onPasteZoneTap() {
-  if (!isOnline.value || isBusy.value) {
-    return;
-  }
-
-  isBusy.value = true;
-  appError.value = "";
-
-  try {
-    const payload = await readClipboardForPush();
-    if (!payload) {
-      appError.value = "Clipboard is empty or unsupported.";
-      return;
-    }
-
-    await pushFile(payload.fileBlob, payload.mimeType);
-    await refreshItems();
-  } catch (err) {
-    console.error("Failed to push clipboard content:", err);
-    appError.value =
-      clipboardErrorMessage(err) ??
-      (err instanceof Error
-        ? err.message
-        : "Could not push clipboard content.");
-  } finally {
-    isBusy.value = false;
-  }
-}
-
-async function onFileInputChange(event: Event) {
-  if (!isOnline.value || isBusy.value) {
-    return;
-  }
-
-  const input = event.currentTarget as HTMLInputElement;
-  const selectedFiles = [...(input.files ?? [])];
-  input.value = "";
-
-  if (!selectedFiles.length) {
-    return;
-  }
-
-  isBusy.value = true;
-  appError.value = "";
-
-  try {
-    await pushFiles(selectedFiles);
-  } catch (err) {
-    console.error("Failed to push file:", err);
-    appError.value =
-      err instanceof Error ? err.message : "Could not push the file to Drive.";
-  } finally {
-    isBusy.value = false;
-  }
-}
-
-async function consumeSharedContent() {
-  if (!location.search.includes(SHARE_TARGET_QUERY)) {
-    return false;
-  }
-
-  try {
-    const payload = await consumeSharePayload();
-    appError.value = "";
-
-    if (payload) {
-      await pushSharePayloadToDrive(payload, pushFile, pushText);
-      await refreshItems();
-    }
-
-    history.replaceState({}, "", location.pathname);
-    return true;
-  } catch (err) {
-    console.error("Failed to push shared content:", err);
-    appError.value = "Could not push shared content to Drive.";
-    return true;
-  }
 }
 
 async function initializeDrive() {
-  initialLoadActive = true;
-
   if (!isOnline.value) {
     isBusy.value = false;
-    initialLoadActive = false;
     return;
   }
 
   await loadDriveContent();
 
-  try {
-    const consumedShare = await consumeSharedContent();
-    if (!consumedShare && !wasFileLaunchPending()) {
-      // no-op: share and file launch flows push on their own callbacks
-    }
-  } catch (err) {
-    console.error("Failed to consume shared content:", err);
+  const shareError = await contentPush.consumePendingShare();
+  if (shareError) {
+    appError.value = shareError;
   }
-
-  initialLoadActive = false;
 }
 
-registerFileLaunchConsumer((files) => {
-  if (!isOnline.value) {
-    appError.value = "Dabba requires an internet connection.";
+async function onPasteZoneTap() {
+  const error = await contentPush.fromClipboard();
+  appError.value = error ?? "";
+}
+
+async function onFileInputChange(event: Event) {
+  const input = event.currentTarget as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+
+  if (!file) {
     return;
   }
 
-  isBusy.value = true;
-  appError.value = "";
+  const error = await contentPush.fromFile(file);
+  appError.value = error ?? "";
+}
 
-  void (async () => {
-    try {
-      await pushFiles(files);
-    } catch (err) {
-      console.error("Failed to push opened file:", err);
-      appError.value =
-        err instanceof Error ? err.message : "Could not push opened file.";
-    } finally {
-      isBusy.value = false;
-    }
-  })();
-});
+const syncOnlineStatus = () => {
+  if (navigator.onLine === isOnline.value) {
+    return;
+  }
+
+  if (navigator.onLine) {
+    isOnline.value = true;
+    appError.value = "";
+    void initializeDrive();
+    return;
+  }
+
+  isOnline.value = false;
+  isBusy.value = false;
+  loadPromise = null;
+  appError.value = "Dabba requires an internet connection.";
+};
 
 const onPageMount = () => {
   pageListeners = new AbortController();
   const { signal: abortSignal } = pageListeners;
-
-  const syncOnlineStatus = () => {
-    const online = navigator.onLine;
-    if (online === isOnline.value) {
-      return;
-    }
-
-    if (online) {
-      isOnline.value = true;
-      appError.value = "";
-      void initializeDrive();
-      return;
-    }
-
-    isOnline.value = false;
-    isBusy.value = false;
-    loadPromise = null;
-    appError.value = "Dabba requires an internet connection.";
-  };
-
-  const onInitialLoadFocus = () => {
-    syncOnlineStatus();
-    void refreshOnInitialLoadFocus();
-  };
 
   window.addEventListener("online", syncOnlineStatus, { signal: abortSignal });
   window.addEventListener("offline", syncOnlineStatus, { signal: abortSignal });
@@ -287,15 +319,11 @@ const onPageMount = () => {
     "visibilitychange",
     () => {
       if (document.visibilityState === "visible") {
-        onInitialLoadFocus();
+        syncOnlineStatus();
       }
     },
     { signal: abortSignal },
   );
-  window.addEventListener("pageshow", onInitialLoadFocus, {
-    signal: abortSignal,
-  });
-  window.addEventListener("focus", onInitialLoadFocus, { signal: abortSignal });
 
   void initializeDrive();
 };
@@ -303,7 +331,7 @@ const onPageMount = () => {
 const onPageUnmount = () => {
   pageListeners?.abort();
   pageListeners = undefined;
-  void disconnectDrive();
+  void socket.disconnect();
 };
 
 export default HTMLPage({
@@ -325,7 +353,7 @@ export default HTMLPage({
           m.Button({
             type: "button",
             class: css("refresh-button"),
-            disabled: isBusy,
+            disabled: derive(() => isBusy.value || contentPush.busy.value),
             onclick: reloadContent,
             children: "Reload content",
           }),
