@@ -443,7 +443,7 @@ export default HTMLPage({
           m.P({
             class: css("offline-banner"),
             role: "alert",
-            children: "Dabba requires an internet connection.",
+            children: "Dabba requires an active internet connection.",
           }),
       }),
       m.If({
