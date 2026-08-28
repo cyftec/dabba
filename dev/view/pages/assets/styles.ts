@@ -27,6 +27,15 @@ export const atomicClassOverrides = {
     "special-wrap": "{ white-space: pre-wrap; overflow-wrap: anywhere; }",
     "hidden-input":
       "{ position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }",
+    mxh1: "{ max-height: 1rem; }",
+    mxh2: "{ max-height: 2rem; }",
+    mxh3: "{ max-height: 4rem; }",
+    mxh4: "{ max-height: 8rem; }",
+    mxh5: "{ max-height: 16rem; }",
+    mxh6: "{ max-height: 32rem; }",
+    mxh7: "{ max-height: 48rem; }",
+    mxh8: "{ max-height: 64rem; }",
+    mxh9: "{ max-height: 96rem; }",
   },
 } as const satisfies AtomicClassOverrides;
 
@@ -54,6 +63,7 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
   "item-tile": "mt0 mh0 mb3 pa3 f6 br3 bg-near-white",
   "item-text": "ma0 mb3 special-wrap f4",
+  "item-preview": "db h-auto mw-100 mxh5 mb3 br2",
   "item-file-header": "flex justify-between mb3 f6",
   "item-actions": "flex flex-wrap",
   "item-button": "ma0 mr2 pa2 f6 ba bw1 br2 b--moon-gray bg-near-white pointer",

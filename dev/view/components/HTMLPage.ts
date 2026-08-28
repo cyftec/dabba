@@ -21,6 +21,7 @@ export const HTMLPage = component<HTMLPageProps>(
                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
                 font-src https://fonts.gstatic.com;
                 connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com;
+                img-src 'self' data: blob: https:;
                 frame-src https://accounts.google.com;
                 object-src 'none';
                 base-uri 'none';

@@ -13,7 +13,7 @@ const GOOGLE_CLIENT_ID =
   "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com";
 
 const socket = new DriveSocket({ clientId: GOOGLE_CLIENT_ID }, [
-  "webContentLink",
+  "thumbnailLink",
 ]);
 
 type DabbaItem = {
@@ -21,7 +21,9 @@ type DabbaItem = {
   name: string;
   mimeType: string;
   createdTime: string;
-  webContentLink: string;
+  thumbnailLink?: string;
+  text?: string;
+  previewUrl?: string;
 };
 
 class ContentPush {
@@ -180,8 +182,7 @@ class ContentPush {
     dataUrl: string;
   }): File {
     const commaIndex = file.dataUrl.indexOf(",");
-    const base64 =
-      commaIndex === -1 ? "" : file.dataUrl.slice(commaIndex + 1);
+    const base64 = commaIndex === -1 ? "" : file.dataUrl.slice(commaIndex + 1);
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
     return new File([bytes], file.name, {
       type: file.type || "application/octet-stream",
@@ -197,6 +198,42 @@ const isBusy = signal(true);
 let pageListeners: AbortController | undefined;
 let loadPromise: Promise<void> | null = null;
 
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i] ?? 0);
+  }
+
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+}
+
+async function loadItemPreview(id: string, mimeType: string) {
+  if (mimeType !== "text/plain" && !mimeType.startsWith("image/")) {
+    return;
+  }
+
+  try {
+    const message = await socket.getById(id);
+
+    if (mimeType === "text/plain") {
+      const text = await message.fileBlob.text();
+      items.value = items.value.map((item) =>
+        item.id === id ? { ...item, text } : item,
+      );
+      return;
+    }
+
+    const previewUrl = await blobToDataUrl(message.fileBlob);
+    items.value = items.value.map((item) =>
+      item.id === id ? { ...item, previewUrl } : item,
+    );
+  } catch (err) {
+    console.error(`Failed to load preview for ${id}:`, err);
+  }
+}
+
 async function refreshItems() {
   const metadataList = await socket.receive({ as: "file-message-metadata" });
   items.value = metadataList.map((metadata) => ({
@@ -204,8 +241,37 @@ async function refreshItems() {
     name: metadata.name,
     mimeType: metadata.mimeType,
     createdTime: metadata.createdTime,
-    webContentLink: metadata.webContentLink ?? "",
+    thumbnailLink: metadata.thumbnailLink,
   }));
+
+  for (const metadata of metadataList) {
+    void loadItemPreview(metadata.id, metadata.mimeType);
+  }
+}
+
+async function downloadItem(id: string, name: string) {
+  if (!navigator.onLine) {
+    appError.value = "Dabba requires an internet connection.";
+    return;
+  }
+
+  try {
+    if (!socket.isAuthenticated()) {
+      await socket.connect();
+    }
+
+    const message = await socket.getById(id);
+    const url = URL.createObjectURL(message.fileBlob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(`Failed to download ${id}:`, err);
+    appError.value =
+      err instanceof Error ? err.message : "Could not download the file.";
+  }
 }
 
 const contentPush = new ContentPush(refreshItems);
@@ -392,12 +458,13 @@ export default HTMLPage({
         isTruthy: () => EmptyListMessage({ isListLoading: true }),
         isFalsy: () =>
           m.If({
-            subject: items.length(),
+            subject: items.is.length.truthy(),
             isFalsy: () => EmptyListMessage({ isListLoading: false }),
             isTruthy: () =>
               DriveItemList({
                 items: items,
                 disabled: zonesDisabled,
+                onDownload: downloadItem,
               }),
           }),
       }),
