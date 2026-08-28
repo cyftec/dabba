@@ -34,7 +34,7 @@ export const ContentInput = component<ContentInputProps>(
           children: [
             m.P({
               class: css("zone-label"),
-              children: "Open a file to share",
+              children: "Open a file from device to share",
             }),
             m.P({
               class: css("zone-hint"),

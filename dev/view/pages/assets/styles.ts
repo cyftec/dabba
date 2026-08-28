@@ -36,6 +36,7 @@ export const atomicClassOverrides = {
     mxh7: "{ max-height: 48rem; }",
     mxh8: "{ max-height: 64rem; }",
     mxh9: "{ max-height: 96rem; }",
+    "w-fill": "{ width: -webkit-fill-available; }",
   },
 } as const satisfies AtomicClassOverrides;
 
@@ -45,7 +46,7 @@ type AppAtomicClassName = AppAtomicClassNames<
 >;
 
 export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
-  history: "mw7 ma0 pa3 center min-vh-100",
+  history: "system-sans-serif mw7 ma0 pa3 center min-vh-100",
   "hero-row": "flex justify-between items-center mt3 mb2 mh0",
   "hero-title": "ma0 mr3",
   "refresh-button": "ma0 pa3 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
@@ -55,9 +56,9 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "offline-banner": "mh0 mv4 pa3 br3 white bg-theme",
   "input-row": "flex mh0 mv4 mb3 pa0 list",
   "paste-zone":
-    "flex-auto ma0 mr2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
+    "flex flex-column w-fill mr2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "file-zone":
-    "flex-auto ma0 ml2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
+    "flex flex-column tc items-center w-fill ml2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
