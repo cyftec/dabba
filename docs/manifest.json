@@ -18,9 +18,6 @@
 	"display": "standalone",
 	"theme_color": "#ee4440",
 	"background_color": "#ffffff",
-	"launch_handler": {
-		"client_mode": "focus-existing"
-	},
 	"share_target": {
 		"action": "/share",
 		"method": "POST",
@@ -38,16 +35,5 @@
 				}
 			]
 		}
-	},
-	"file_handlers": [
-		{
-			"action": "/",
-			"name": "Dabba",
-			"accept": {
-				"*/*": [
-					".*"
-				]
-			}
-		}
-	]
+	}
 }
