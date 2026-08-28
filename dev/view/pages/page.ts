@@ -236,13 +236,20 @@ async function loadItemPreview(id: string, mimeType: string) {
 
 async function refreshItems() {
   const metadataList = await socket.receive({ as: "file-message-metadata" });
-  items.value = metadataList.map((metadata) => ({
-    id: metadata.id,
-    name: metadata.name,
-    mimeType: metadata.mimeType,
-    createdTime: metadata.createdTime,
-    thumbnailLink: metadata.thumbnailLink,
-  }));
+  const previousById = new Map(items.value.map((item) => [item.id, item]));
+
+  items.value = metadataList.map((metadata) => {
+    const previous = previousById.get(metadata.id);
+    return {
+      id: metadata.id,
+      name: metadata.name,
+      mimeType: metadata.mimeType,
+      createdTime: metadata.createdTime,
+      thumbnailLink: metadata.thumbnailLink,
+      ...(previous?.previewUrl ? { previewUrl: previous.previewUrl } : {}),
+      ...(previous?.text !== undefined ? { text: previous.text } : {}),
+    };
+  });
 
   for (const metadata of metadataList) {
     void loadItemPreview(metadata.id, metadata.mimeType);
