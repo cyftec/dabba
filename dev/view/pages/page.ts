@@ -42,7 +42,11 @@ type SharePayload = {
 
 const items = signal<DabbaItem[]>([]);
 const appError = signal("");
-const hasReceived = signal(false);
+const updatesPaused = signal(false);
+const firstUpdateFinished = signal(false);
+const isListLoading = derive(
+  () => !firstUpdateFinished.value && items.value.length === 0,
+);
 
 function fileNameForMime(
   mimeType: SupportedMimeType,
@@ -92,7 +96,6 @@ async function toDabbaItem(message: {
 }
 
 function prependItem(item: DabbaItem) {
-  hasReceived.value = true;
   items.value = [
     item,
     ...items.value.filter((existing) => existing.id !== item.id),
@@ -183,6 +186,8 @@ class ContentPush {
         fileName: fileNameForMime(mimeType, preferredName),
       });
       prependItem(await toDabbaItem(message));
+      updatesPaused.value = true;
+      setTimeout(() => (updatesPaused.value = false), 5000);
     } catch (err) {
       console.error("Failed to push content:", err);
       return err instanceof Error ? err.message : "Could not push content.";
@@ -279,7 +284,8 @@ class ContentPush {
 }
 
 socket.onReceive((messages) => {
-  hasReceived.value = true;
+  if (updatesPaused.value) return;
+
   void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
     items.value = nextItems;
   });
@@ -287,9 +293,6 @@ socket.onReceive((messages) => {
 
 const contentPush = new ContentPush();
 const zonesDisabled = derive(() => contentPush.busy.value);
-const isListLoading = derive(
-  () => !hasReceived.value && items.value.length === 0,
-);
 
 function downloadItem(item: DabbaItem) {
   const url = URL.createObjectURL(item.fileBlob);
