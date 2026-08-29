@@ -1,12 +1,12 @@
 import { component, m } from "@cyftec/maya/core";
-import { derive, effect, type Signal } from "@cyftec/maya/signals";
+import { derive, type Signal } from "@cyftec/maya/signals";
 import { css } from "../pages/assets/styles";
 
 type DriveItem = {
   id: string;
   name: string;
   mimeType: string;
-  thumbnailLink?: string;
+  fileBlob: Blob;
   text?: string;
   previewUrl?: string;
 };
@@ -14,7 +14,7 @@ type DriveItem = {
 type DriveItemListProps = {
   items: DriveItem[];
   disabled: Signal<boolean>;
-  onDownload: (id: string, name: string) => void;
+  onDownload: (item: DriveItem) => void;
 };
 
 export const DriveItemList = component<DriveItemListProps>(
@@ -25,7 +25,7 @@ export const DriveItemList = component<DriveItemListProps>(
         subject: items,
         itemKey: "id",
         map: (item) => {
-          const { name, mimeType, thumbnailLink } = item.props();
+          const { name, mimeType } = item.props();
           const isText = mimeType.is.equalTo("text/plain");
           const isImage = mimeType.startsWith("image/");
           const text = derive(() => item.value.text ?? "EMPTY");
@@ -66,18 +66,6 @@ export const DriveItemList = component<DriveItemListProps>(
                             alt: name,
                             src: subjectPreviewUrl,
                           }),
-                        isFalsy: () => m.Span("previewUrl"),
-                      }),
-                    isFalsy: () =>
-                      m.If({
-                        subject: thumbnailLink,
-                        isTruthy: () =>
-                          m.Img({
-                            class: css("item-preview"),
-                            alt: name,
-                            src: thumbnailLink,
-                          }),
-                        isFalsy: () => m.Span("DUFFER"),
                       }),
                   }),
               }),
@@ -87,8 +75,7 @@ export const DriveItemList = component<DriveItemListProps>(
                   type: "button",
                   class: css("item-button"),
                   disabled,
-                  // onclick: () => onDownload(item.id, item.name),
-                  onclick: () => onDownload(item.value.id, item.value.name),
+                  onclick: () => onDownload(item.value),
                   children: "Download",
                 }),
               }),

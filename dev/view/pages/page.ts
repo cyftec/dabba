@@ -1,4 +1,9 @@
-import { DriveSocket } from "@cyftec/drive-socket";
+import {
+  DriveSocket,
+  mimeToExtension,
+  supportedMimeType,
+  type SupportedMimeType,
+} from "@cyftec/drive-socket";
 import { m } from "@cyftec/maya/core";
 import { derive, signal } from "@cyftec/maya/signals";
 import { css } from "./assets/styles";
@@ -12,19 +17,35 @@ import {
 const GOOGLE_CLIENT_ID =
   "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com";
 
-const socket = new DriveSocket({ clientId: GOOGLE_CLIENT_ID }, [
-  "thumbnailLink",
-]);
+const socket = new DriveSocket({
+  clientId: GOOGLE_CLIENT_ID,
+  folderName: "dabba-items",
+  pollIntervalInMs: 25000,
+  maxFiles: 15,
+});
 
 type DabbaItem = {
   id: string;
   name: string;
   mimeType: string;
-  createdTime: string;
-  thumbnailLink?: string;
+  fileBlob: Blob;
   text?: string;
   previewUrl?: string;
 };
+
+function fileNameForMime(
+  mimeType: SupportedMimeType,
+  preferredName?: string,
+): string {
+  const extension = mimeToExtension(mimeType);
+  const preferredExtension = preferredName?.split(".").pop()?.toLowerCase();
+
+  if (preferredName && preferredExtension === extension.toLowerCase()) {
+    return preferredName;
+  }
+
+  return `message-${Date.now()}.${extension}`;
+}
 
 class ContentPush {
   private static readonly shareCache = "dabba-share-target-v1";
@@ -32,8 +53,6 @@ class ContentPush {
   private static readonly shareQuery = "share-target";
 
   readonly busy = signal(false);
-
-  constructor(private onPushed: () => Promise<void>) {}
 
   async consumePendingShare(): Promise<string | undefined> {
     if (!location.search.includes(ContentPush.shareQuery)) {
@@ -103,26 +122,26 @@ class ContentPush {
       return;
     }
 
-    return this.push(file, file.type || "application/octet-stream");
+    return this.push(file, file.type || "application/octet-stream", file.name);
   }
 
   private async push(
     fileBlob: Blob,
     mimeType: string,
+    preferredName?: string,
   ): Promise<string | undefined> {
-    if (!navigator.onLine) {
-      return "Dabba requires an internet connection.";
+    if (!supportedMimeType(mimeType)) {
+      return `Unsupported file type: ${mimeType}`;
     }
 
     this.busy.value = true;
 
     try {
-      if (!socket.isAuthenticated()) {
-        await socket.connect();
-      }
-
-      await socket.push(fileBlob, { mimeType });
-      await this.onPushed();
+      await socket.connect({ interactive: true });
+      await socket.push(fileBlob, {
+        mimeType,
+        fileName: fileNameForMime(mimeType, preferredName),
+      });
     } catch (err) {
       console.error("Failed to push content:", err);
       return err instanceof Error ? err.message : "Could not push content.";
@@ -192,11 +211,7 @@ class ContentPush {
 
 const items = signal<DabbaItem[]>([]);
 const appError = signal("");
-const isOnline = signal(navigator.onLine);
-const isBusy = signal(true);
-
-let pageListeners: AbortController | undefined;
-let loadPromise: Promise<void> | null = null;
+const hasReceived = signal(false);
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -209,141 +224,48 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
-async function loadItemPreview(id: string, mimeType: string) {
-  if (mimeType !== "text/plain" && !mimeType.startsWith("image/")) {
-    return;
+async function toDabbaItem(message: {
+  id: string;
+  name: string;
+  fileBlob: Blob;
+}): Promise<DabbaItem> {
+  const mimeType = message.fileBlob.type || "application/octet-stream";
+  const item: DabbaItem = {
+    id: message.id,
+    name: message.name,
+    mimeType,
+    fileBlob: message.fileBlob,
+  };
+
+  if (mimeType === "text/plain") {
+    item.text = await message.fileBlob.text();
+  } else if (mimeType.startsWith("image/")) {
+    item.previewUrl = await blobToDataUrl(message.fileBlob);
   }
 
-  try {
-    const message = await socket.getById(id);
-
-    if (mimeType === "text/plain") {
-      const text = await message.fileBlob.text();
-      items.value = items.value.map((item) =>
-        item.id === id ? { ...item, text } : item,
-      );
-      return;
-    }
-
-    const previewUrl = await blobToDataUrl(message.fileBlob);
-    items.value = items.value.map((item) =>
-      item.id === id ? { ...item, previewUrl } : item,
-    );
-  } catch (err) {
-    console.error(`Failed to load preview for ${id}:`, err);
-  }
+  return item;
 }
 
-async function refreshItems() {
-  const metadataList = await socket.receive({ as: "file-message-metadata" });
-  const previousById = new Map(items.value.map((item) => [item.id, item]));
-
-  items.value = metadataList.map((metadata) => {
-    const previous = previousById.get(metadata.id);
-    return {
-      id: metadata.id,
-      name: metadata.name,
-      mimeType: metadata.mimeType,
-      createdTime: metadata.createdTime,
-      thumbnailLink: metadata.thumbnailLink,
-      ...(previous?.previewUrl ? { previewUrl: previous.previewUrl } : {}),
-      ...(previous?.text !== undefined ? { text: previous.text } : {}),
-    };
+socket.onReceive((messages) => {
+  hasReceived.value = true;
+  void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
+    items.value = nextItems;
   });
+});
 
-  for (const metadata of metadataList) {
-    void loadItemPreview(metadata.id, metadata.mimeType);
-  }
-}
-
-async function downloadItem(id: string, name: string) {
-  if (!navigator.onLine) {
-    appError.value = "Dabba requires an internet connection.";
-    return;
-  }
-
-  try {
-    if (!socket.isAuthenticated()) {
-      await socket.connect();
-    }
-
-    const message = await socket.getById(id);
-    const url = URL.createObjectURL(message.fileBlob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = name;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error(`Failed to download ${id}:`, err);
-    appError.value =
-      err instanceof Error ? err.message : "Could not download the file.";
-  }
-}
-
-const contentPush = new ContentPush(refreshItems);
-
-const zonesDisabled = derive(
-  () => !isOnline.value || isBusy.value || contentPush.busy.value,
+const contentPush = new ContentPush();
+const zonesDisabled = derive(() => contentPush.busy.value);
+const isListLoading = derive(
+  () => !hasReceived.value && items.value.length === 0,
 );
-const isListLoading = derive(() => isBusy.value && items.value.length === 0);
 
-async function loadDriveContent(): Promise<void> {
-  if (!isOnline.value) {
-    isBusy.value = false;
-    return;
-  }
-
-  if (loadPromise) {
-    return loadPromise;
-  }
-
-  loadPromise = (async () => {
-    isBusy.value = true;
-    appError.value = "";
-
-    try {
-      if (!socket.isAuthenticated()) {
-        await socket.connect();
-      }
-
-      await refreshItems();
-    } catch (err) {
-      console.error("Failed to load Drive items:", err);
-      appError.value =
-        err instanceof Error ? err.message : "Could not load items from Drive.";
-    } finally {
-      isBusy.value = false;
-    }
-  })();
-
-  try {
-    await loadPromise;
-  } finally {
-    loadPromise = null;
-  }
-}
-
-async function reloadContent() {
-  if (isBusy.value || contentPush.busy.value) {
-    return;
-  }
-
-  await loadDriveContent();
-}
-
-async function initializeDrive() {
-  if (!isOnline.value) {
-    isBusy.value = false;
-    return;
-  }
-
-  await loadDriveContent();
-
-  const shareError = await contentPush.consumePendingShare();
-  if (shareError) {
-    appError.value = shareError;
-  }
+function downloadItem(item: DabbaItem) {
+  const url = URL.createObjectURL(item.fileBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = item.name;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 async function onPasteZoneTap() {
@@ -364,46 +286,15 @@ async function onFileInputChange(event: Event) {
   appError.value = error ?? "";
 }
 
-const syncOnlineStatus = () => {
-  if (navigator.onLine === isOnline.value) {
-    return;
-  }
-
-  if (navigator.onLine) {
-    isOnline.value = true;
-    appError.value = "";
-    void initializeDrive();
-    return;
-  }
-
-  isOnline.value = false;
-  isBusy.value = false;
-  loadPromise = null;
-  appError.value = "Dabba requires an internet connection.";
-};
-
 const onPageMount = () => {
-  pageListeners = new AbortController();
-  const { signal: abortSignal } = pageListeners;
-
-  window.addEventListener("online", syncOnlineStatus, { signal: abortSignal });
-  window.addEventListener("offline", syncOnlineStatus, { signal: abortSignal });
-  document.addEventListener(
-    "visibilitychange",
-    () => {
-      if (document.visibilityState === "visible") {
-        syncOnlineStatus();
-      }
-    },
-    { signal: abortSignal },
-  );
-
-  void initializeDrive();
+  void contentPush.consumePendingShare().then((shareError) => {
+    if (shareError) {
+      appError.value = shareError;
+    }
+  });
 };
 
 const onPageUnmount = () => {
-  pageListeners?.abort();
-  pageListeners = undefined;
   void socket.disconnect();
 };
 
@@ -415,36 +306,15 @@ export default HTMLPage({
     class: css("history"),
     "aria-labelledby": "dabba-title",
     children: [
-      m.Div({
-        class: css("hero-row"),
-        children: [
-          m.H1({
-            id: "dabba-title",
-            class: css("hero-title"),
-            children: "Dabba",
-          }),
-          m.Button({
-            type: "button",
-            class: css("refresh-button"),
-            disabled: derive(() => isBusy.value || contentPush.busy.value),
-            onclick: reloadContent,
-            children: "Reload content",
-          }),
-        ],
+      m.H1({
+        id: "dabba-title",
+        class: css("hero-title"),
+        children: "Dabba",
       }),
       m.P({
         class: css("history-hint"),
         children:
           "Paste clipboard content or open a file to share it across your devices via Google Drive.",
-      }),
-      m.If({
-        subject: isOnline,
-        isFalsy: () =>
-          m.P({
-            class: css("offline-banner"),
-            role: "alert",
-            children: "Dabba requires an active internet connection.",
-          }),
       }),
       m.If({
         subject: appError,
