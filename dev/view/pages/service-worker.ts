@@ -3,9 +3,16 @@
 declare const self: ServiceWorkerGlobalScope;
 
 const SHARE_ACTION = "/share";
-const SHARE_CACHE = "dabba-share-target-v1";
-const SHARE_KEY = "/dabba/share-target/payload";
 const SHARE_QUERY = "share-target";
+
+type SharePayload = {
+  title: string;
+  text: string;
+  url: string;
+  files: Array<{ name: string; type: string; dataUrl: string }>;
+};
+
+let pendingShare: SharePayload | null = null;
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -18,6 +25,26 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
+function deliverPendingShare(client: Client): void {
+  if (!pendingShare) {
+    return;
+  }
+
+  client.postMessage({ type: "dabba-share-target", payload: pendingShare });
+  pendingShare = null;
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "dabba-consume-share") {
+    return;
+  }
+
+  const client = event.source;
+  if (client instanceof Client) {
+    deliverPendingShare(client);
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "POST" || url.pathname !== SHARE_ACTION) {
@@ -27,7 +54,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     (async () => {
       const formData = await event.request.formData();
-      const files: Array<{ name: string; type: string; dataUrl: string }> = [];
+      const files: SharePayload["files"] = [];
 
       for (const entry of formData.getAll("files")) {
         if (!(entry instanceof File) || entry.size === 0) {
@@ -41,19 +68,12 @@ self.addEventListener("fetch", (event) => {
         });
       }
 
-      const cache = await caches.open(SHARE_CACHE);
-      await cache.put(
-        SHARE_KEY,
-        new Response(
-          JSON.stringify({
-            title: String(formData.get("title") ?? ""),
-            text: String(formData.get("text") ?? ""),
-            url: String(formData.get("url") ?? ""),
-            files,
-          }),
-          { headers: { "Content-Type": "application/json" } },
-        ),
-      );
+      pendingShare = {
+        title: String(formData.get("title") ?? ""),
+        text: String(formData.get("text") ?? ""),
+        url: String(formData.get("url") ?? ""),
+        files,
+      };
 
       const redirectUrl = new URL("/", self.location.origin);
       redirectUrl.searchParams.set(SHARE_QUERY, "1");

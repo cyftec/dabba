@@ -1,8 +1,7 @@
 // dev/view/pages/service-worker.ts
 var SHARE_ACTION = "/share";
-var SHARE_CACHE = "dabba-share-target-v1";
-var SHARE_KEY = "/dabba/share-target/payload";
 var SHARE_QUERY = "share-target";
+var pendingShare = null;
 async function blobToDataUrl(blob) {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";
@@ -11,6 +10,22 @@ async function blobToDataUrl(blob) {
   }
   return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
+function deliverPendingShare(client) {
+  if (!pendingShare) {
+    return;
+  }
+  client.postMessage({ type: "dabba-share-target", payload: pendingShare });
+  pendingShare = null;
+}
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "dabba-consume-share") {
+    return;
+  }
+  const client = event.source;
+  if (client instanceof Client) {
+    deliverPendingShare(client);
+  }
+});
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "POST" || url.pathname !== SHARE_ACTION) {
@@ -29,13 +44,12 @@ self.addEventListener("fetch", (event) => {
         dataUrl: await blobToDataUrl(entry)
       });
     }
-    const cache = await caches.open(SHARE_CACHE);
-    await cache.put(SHARE_KEY, new Response(JSON.stringify({
+    pendingShare = {
       title: String(formData.get("title") ?? ""),
       text: String(formData.get("text") ?? ""),
       url: String(formData.get("url") ?? ""),
       files
-    }), { headers: { "Content-Type": "application/json" } }));
+    };
     const redirectUrl = new URL("/", self.location.origin);
     redirectUrl.searchParams.set(SHARE_QUERY, "1");
     return Response.redirect(redirectUrl.href, 303);

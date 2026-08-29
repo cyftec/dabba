@@ -20,7 +20,7 @@ const GOOGLE_CLIENT_ID =
 const socket = new DriveSocket({
   clientId: GOOGLE_CLIENT_ID,
   folderName: "dabba-items",
-  pollIntervalInMs: 25000,
+  pollIntervalInMs: 5000,
   maxFiles: 15,
 });
 
@@ -32,6 +32,17 @@ type DabbaItem = {
   text?: string;
   previewUrl?: string;
 };
+
+type SharePayload = {
+  title: string;
+  text: string;
+  url: string;
+  files: Array<{ name: string; type: string; dataUrl: string }>;
+};
+
+const items = signal<DabbaItem[]>([]);
+const appError = signal("");
+const hasReceived = signal(false);
 
 function fileNameForMime(
   mimeType: SupportedMimeType,
@@ -47,9 +58,48 @@ function fileNameForMime(
   return `message-${Date.now()}.${extension}`;
 }
 
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i] ?? 0);
+  }
+
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+}
+
+async function toDabbaItem(message: {
+  id: string;
+  name: string;
+  fileBlob: Blob;
+}): Promise<DabbaItem> {
+  const mimeType = message.fileBlob.type || "application/octet-stream";
+  const item: DabbaItem = {
+    id: message.id,
+    name: message.name,
+    mimeType,
+    fileBlob: message.fileBlob,
+  };
+
+  if (mimeType === "text/plain") {
+    item.text = await message.fileBlob.text();
+  } else if (mimeType.startsWith("image/")) {
+    item.previewUrl = await blobToDataUrl(message.fileBlob);
+  }
+
+  return item;
+}
+
+function prependItem(item: DabbaItem) {
+  hasReceived.value = true;
+  items.value = [
+    item,
+    ...items.value.filter((existing) => existing.id !== item.id),
+  ];
+}
+
 class ContentPush {
-  private static readonly shareCache = "dabba-share-target-v1";
-  private static readonly shareKey = "/dabba/share-target/payload";
   private static readonly shareQuery = "share-target";
 
   readonly busy = signal(false);
@@ -61,20 +111,10 @@ class ContentPush {
 
     history.replaceState({}, "", location.pathname);
 
-    const cache = await caches.open(ContentPush.shareCache);
-    const response = await cache.match(ContentPush.shareKey);
-    if (!response) {
+    const payload = await this.readPendingShare();
+    if (!payload) {
       return;
     }
-
-    await cache.delete(ContentPush.shareKey);
-
-    const payload = (await response.json()) as {
-      title: string;
-      text: string;
-      url: string;
-      files: Array<{ name: string; type: string; dataUrl: string }>;
-    };
 
     const sharedFile = payload.files[0];
     if (sharedFile) {
@@ -138,16 +178,45 @@ class ContentPush {
 
     try {
       await socket.connect({ interactive: true });
-      await socket.push(fileBlob, {
+      const message = await socket.push(fileBlob, {
         mimeType,
         fileName: fileNameForMime(mimeType, preferredName),
       });
+      prependItem(await toDabbaItem(message));
     } catch (err) {
       console.error("Failed to push content:", err);
       return err instanceof Error ? err.message : "Could not push content.";
     } finally {
       this.busy.value = false;
     }
+  }
+
+  private async readPendingShare(): Promise<SharePayload | undefined> {
+    if (!navigator.serviceWorker) {
+      return;
+    }
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        navigator.serviceWorker.removeEventListener("message", onMessage);
+        resolve(undefined);
+      }, 3000);
+
+      const onMessage = (event: MessageEvent) => {
+        if (event.data?.type !== "dabba-share-target") {
+          return;
+        }
+
+        clearTimeout(timeout);
+        navigator.serviceWorker.removeEventListener("message", onMessage);
+        resolve(event.data.payload as SharePayload);
+      };
+
+      navigator.serviceWorker.addEventListener("message", onMessage);
+      navigator.serviceWorker.controller?.postMessage({
+        type: "dabba-consume-share",
+      });
+    });
   }
 
   private async readClipboard(): Promise<{
@@ -209,43 +278,6 @@ class ContentPush {
   }
 }
 
-const items = signal<DabbaItem[]>([]);
-const appError = signal("");
-const hasReceived = signal(false);
-
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i] ?? 0);
-  }
-
-  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
-}
-
-async function toDabbaItem(message: {
-  id: string;
-  name: string;
-  fileBlob: Blob;
-}): Promise<DabbaItem> {
-  const mimeType = message.fileBlob.type || "application/octet-stream";
-  const item: DabbaItem = {
-    id: message.id,
-    name: message.name,
-    mimeType,
-    fileBlob: message.fileBlob,
-  };
-
-  if (mimeType === "text/plain") {
-    item.text = await message.fileBlob.text();
-  } else if (mimeType.startsWith("image/")) {
-    item.previewUrl = await blobToDataUrl(message.fileBlob);
-  }
-
-  return item;
-}
-
 socket.onReceive((messages) => {
   hasReceived.value = true;
   void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
@@ -266,6 +298,25 @@ function downloadItem(item: DabbaItem) {
   anchor.download = item.name;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+async function clearAppStorage() {
+  await socket.disconnect();
+
+  const cacheKeys = await caches.keys();
+  await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+
+  localStorage.clear();
+  sessionStorage.clear();
+
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map((registration) => registration.unregister()),
+    );
+  }
+
+  location.reload();
 }
 
 async function onPasteZoneTap() {
@@ -306,10 +357,21 @@ export default HTMLPage({
     class: css("history"),
     "aria-labelledby": "dabba-title",
     children: [
-      m.H1({
-        id: "dabba-title",
-        class: css("hero-title"),
-        children: "Dabba",
+      m.Div({
+        class: css("hero-row"),
+        children: [
+          m.H1({
+            id: "dabba-title",
+            class: css("hero-title"),
+            children: "Dabba",
+          }),
+          m.Button({
+            type: "button",
+            class: css("clear-storage-button"),
+            onclick: clearAppStorage,
+            children: "Refresh Page",
+          }),
+        ],
       }),
       m.P({
         class: css("history-hint"),

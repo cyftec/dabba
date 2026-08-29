@@ -49,7 +49,8 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   history: "system-sans-serif mw7 ma0 pa3 center min-vh-100",
   "hero-row": "flex justify-between items-center mt3 mb2 mh0",
   "hero-title": "ma0 mr3",
-  "refresh-button": "ma0 pa3 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
+  "clear-storage-button":
+    "ma0 pa2 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
   "history-hint": "mt1 mb4 mh0 mid-gray f5",
   "history-error": "mh3 pa3 br3 red bg-light-red",
   "history-empty": "ma0 pa3 ba bw1 br3 b--dashed b--silver gray",
@@ -65,7 +66,7 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "item-tile": "mt0 mh0 mb3 pa3 f6 br3 bg-near-white",
   "item-text": "ma0 mb3 special-wrap f4",
   "item-preview": "db h-auto mw-100 mxh5 mb3 br2",
-  "item-file-header": "flex justify-between mb3 f6",
+  "item-file-header": "flex justify-between mb3 f7",
   "item-actions": "flex flex-wrap",
   "item-button": "ma0 mr2 pa2 f6 ba bw1 br2 b--moon-gray bg-near-white pointer",
 });
