@@ -1,5 +1,6 @@
 import { component, DomEventValue, m } from "@cyftec/maya/core";
 import { css } from "../pages/assets/styles";
+import { Icon } from "./Icon";
 
 type ContentInputProps = {
   classNames?: string;
@@ -19,6 +20,10 @@ export const ContentInput = component<ContentInputProps>(
           disabled: zonesDisabled,
           onclick: onPasteZoneTap,
           children: [
+            Icon({
+              classNames: css("flex self-center mt1 mb3"),
+              name: "content_copy",
+            }),
             m.P({
               class: css("zone-label"),
               children: "Paste clipboard content",
@@ -32,9 +37,13 @@ export const ContentInput = component<ContentInputProps>(
         m.Label({
           class: css("file-zone"),
           children: [
+            Icon({
+              classNames: css("flex self-center mt1 mb3"),
+              name: "folder_open",
+            }),
             m.P({
               class: css("zone-label"),
-              children: "Open a file from device to share",
+              children: "Share a file from device",
             }),
             m.P({
               class: css("zone-hint"),

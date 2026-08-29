@@ -1,7 +1,9 @@
 import {
   DriveSocket,
   mimeToExtension,
+  NotAuthenticatedError,
   supportedMimeType,
+  type DriveMessage,
   type SupportedMimeType,
 } from "@cyftec/drive-socket";
 import { m } from "@cyftec/maya/core";
@@ -9,10 +11,11 @@ import { derive, signal } from "@cyftec/maya/signals";
 import { css } from "./assets/styles";
 import {
   ContentInput,
-  DriveItemList,
+  FileTile,
   EmptyListMessage,
   HTMLPage,
 } from "../components/index";
+import { Icon } from "../components/Icon";
 
 const GOOGLE_CLIENT_ID =
   "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com";
@@ -20,15 +23,12 @@ const GOOGLE_CLIENT_ID =
 const socket = new DriveSocket({
   clientId: GOOGLE_CLIENT_ID,
   folderName: "dabba-items",
-  pollIntervalInMs: 5000,
+  pollIntervalInMs: 15_000,
   maxFiles: 15,
 });
 
-type DabbaItem = {
-  id: string;
-  name: string;
+type DabbaItem = DriveMessage & {
   mimeType: string;
-  fileBlob: Blob;
   text?: string;
   previewUrl?: string;
 };
@@ -73,17 +73,18 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
-async function toDabbaItem(message: {
-  id: string;
-  name: string;
-  fileBlob: Blob;
-}): Promise<DabbaItem> {
+async function toDabbaItem(message: DriveMessage): Promise<DabbaItem> {
+  if (message.isError) {
+    return {
+      ...message,
+      mimeType: "application/octet-stream",
+    };
+  }
+
   const mimeType = message.fileBlob.type || "application/octet-stream";
   const item: DabbaItem = {
-    id: message.id,
-    name: message.name,
+    ...message,
     mimeType,
-    fileBlob: message.fileBlob,
   };
 
   if (mimeType === "text/plain") {
@@ -180,11 +181,20 @@ class ContentPush {
     this.busy.value = true;
 
     try {
-      await socket.connect({ interactive: true });
-      const message = await socket.push(fileBlob, {
-        mimeType,
-        fileName: fileNameForMime(mimeType, preferredName),
-      });
+      const fileName = fileNameForMime(mimeType, preferredName);
+      const pushOptions = { mimeType, fileName };
+
+      let message;
+      try {
+        message = await socket.push(fileBlob, pushOptions);
+      } catch (err) {
+        if (!(err instanceof NotAuthenticatedError)) {
+          throw err;
+        }
+
+        await socket.connect({ interactive: true });
+        message = await socket.push(fileBlob, pushOptions);
+      }
       prependItem(await toDabbaItem(message));
       updatesPaused.value = true;
       setTimeout(() => (updatesPaused.value = false), 5000);
@@ -288,6 +298,7 @@ socket.onReceive((messages) => {
 
   void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
     items.value = nextItems;
+    firstUpdateFinished.value = true;
   });
 });
 
@@ -295,12 +306,42 @@ const contentPush = new ContentPush();
 const zonesDisabled = derive(() => contentPush.busy.value);
 
 function downloadItem(item: DabbaItem) {
+  if (item.isError) {
+    return;
+  }
+
   const url = URL.createObjectURL(item.fileBlob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = item.name;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+async function copyItemContent(item: DabbaItem) {
+  if (item.isError) {
+    return;
+  }
+
+  try {
+    if (item.mimeType === "text/plain") {
+      await navigator.clipboard.writeText(
+        item.text ?? (await item.fileBlob.text()),
+      );
+      return;
+    }
+
+    if (item.mimeType.startsWith("image/")) {
+      await navigator.clipboard.write([
+        new ClipboardItem({ [item.mimeType]: item.fileBlob }),
+      ]);
+      console.log(await navigator.clipboard.read());
+    }
+  } catch (err) {
+    console.error(`Failed to copy ${item.name}:`, err);
+    appError.value =
+      err instanceof Error ? err.message : "Could not copy item content.";
+  }
 }
 
 async function clearAppStorage() {
@@ -341,11 +382,33 @@ async function onFileInputChange(event: Event) {
 }
 
 const onPageMount = () => {
+  void socket.connect({ interactive: false }).then(() => {
+    socket.start();
+  });
+
   void contentPush.consumePendingShare().then((shareError) => {
     if (shareError) {
       appError.value = shareError;
     }
   });
+
+  window.addEventListener("pagehide", () => socket.pause());
+  window.addEventListener("beforeunload", () => socket.pause());
+  window.addEventListener("focus", () => socket.start());
+  window.addEventListener("pageshow", () => {
+    if (document.visibilityState === "visible") socket.start();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      socket.pause();
+    } else {
+      socket.start();
+    }
+  });
+
+  if (document.visibilityState === "visible") {
+    socket.start();
+  }
 };
 
 const onPageUnmount = () => {
@@ -363,16 +426,30 @@ export default HTMLPage({
       m.Div({
         class: css("hero-row"),
         children: [
-          m.H1({
-            id: "dabba-title",
-            class: css("hero-title"),
-            children: "Dabba",
+          m.Div({
+            class: css("flex items-center"),
+            children: [
+              m.Img({
+                class: css("mr1"),
+                src: "/assets/images/512_dabba.png",
+                height: "36",
+                width: "36",
+              }),
+              m.H1({
+                id: "dabba-title",
+                class: css("hero-title"),
+                children: "Dabba",
+              }),
+            ],
           }),
           m.Button({
             type: "button",
-            class: css("clear-storage-button"),
+            class: css("refresh-page-button"),
             onclick: clearAppStorage,
-            children: "Refresh Page",
+            children: [
+              Icon({ classNames: css("mr2"), name: "refresh", size: 18 }),
+              "Refresh Page",
+            ],
           }),
         ],
       }),
@@ -403,10 +480,18 @@ export default HTMLPage({
             subject: items.is.length.truthy(),
             isFalsy: () => EmptyListMessage({ isListLoading: false }),
             isTruthy: () =>
-              DriveItemList({
-                items: items,
-                disabled: zonesDisabled,
-                onDownload: downloadItem,
+              m.Ul({
+                class: css("item-grid"),
+                children: m.For({
+                  subject: items,
+                  itemKey: "id",
+                  map: (item) =>
+                    FileTile({
+                      item: item,
+                      onDownload: () => downloadItem(item.value),
+                      onCopy: () => copyItemContent(item.value),
+                    }),
+                }),
               }),
           }),
       }),

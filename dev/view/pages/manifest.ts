@@ -25,12 +25,12 @@ const manifest: WebAppManifest & ChromeShareTargetManifest = {
   name: "Dabba",
   icons: [
     {
-      src: `${imagesPath}/192_logo.png`,
+      src: `${imagesPath}/192_dabba.png`,
       sizes: "192x192",
       type: "image/png",
     },
     {
-      src: `${imagesPath}/512_logo.png`,
+      src: `${imagesPath}/512_dabba.png`,
       sizes: "512x512",
       type: "image/png",
     },

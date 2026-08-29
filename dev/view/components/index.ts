@@ -1,4 +1,4 @@
 export * from "./ContentInput";
-export * from "./DriveItemList";
+export * from "./FileTile";
 export * from "./EmptyListMessage";
 export * from "./HTMLPage";
