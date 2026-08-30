@@ -1,7 +1,15 @@
+import { MIME_TO_EXTENSION } from "@cyftec/drive-socket";
 import { WebAppManifest } from "web-app-manifest";
 
 const assetsPath = "/assets";
 const imagesPath = `${assetsPath}/images`;
+
+const fileHandlerAccept = Object.fromEntries(
+  Object.entries(MIME_TO_EXTENSION).map(([mimeType, extension]) => [
+    mimeType,
+    [`.${extension}`],
+  ]),
+) as Record<string, string[]>;
 
 type ChromeShareTargetManifest = {
   share_target: {
@@ -20,9 +28,29 @@ type ChromeShareTargetManifest = {
   };
 };
 
-const manifest: WebAppManifest & ChromeShareTargetManifest = {
+type ChromeFileHandlerManifest = {
+  file_handlers: Array<{
+    action: string;
+    accept: Record<string, string[]>;
+    launch_type: "single-client";
+  }>;
+};
+
+type ChromeLaunchHandlerManifest = {
+  launch_handler: {
+    client_mode: "focus-existing";
+  };
+};
+
+const manifest: WebAppManifest &
+  ChromeShareTargetManifest &
+  ChromeFileHandlerManifest &
+  ChromeLaunchHandlerManifest = {
+  id: "/",
   short_name: "Dabba",
   name: "Dabba",
+  description:
+    "Share clipboard content and files across your devices via Google Drive.",
   icons: [
     {
       src: `${imagesPath}/192_dabba.png`,
@@ -54,7 +82,16 @@ const manifest: WebAppManifest & ChromeShareTargetManifest = {
   display: "standalone",
   theme_color: "#ee4440",
   background_color: "#ffffff",
-
+  launch_handler: {
+    client_mode: "focus-existing",
+  },
+  file_handlers: [
+    {
+      action: "/",
+      accept: fileHandlerAccept,
+      launch_type: "single-client",
+    },
+  ],
   share_target: {
     action: "/share",
     method: "POST",

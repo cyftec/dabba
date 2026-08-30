@@ -12,7 +12,7 @@ import { css } from "./assets/styles";
 import {
   ContentInput,
   FileTile,
-  EmptyListMessage,
+  ListMessage,
   HTMLPage,
 } from "../components/index";
 import { Icon } from "../components/Icon";
@@ -23,7 +23,7 @@ const GOOGLE_CLIENT_ID =
 const socket = new DriveSocket({
   clientId: GOOGLE_CLIENT_ID,
   folderName: "dabba-items",
-  pollIntervalInMs: 15_000,
+  pollIntervalInMs: 155_000,
   maxFiles: 15,
 });
 
@@ -47,6 +47,20 @@ const firstUpdateFinished = signal(false);
 const isListLoading = derive(
   () => !firstUpdateFinished.value && items.value.length === 0,
 );
+
+function mimeTypeForFile(file: File): string {
+  const reported = file.type || "application/octet-stream";
+  const extension = file.name.split(".").pop()?.toLowerCase();
+
+  if (
+    extension === "rtf" &&
+    (reported === "application/zip" || reported === "text/rtf")
+  ) {
+    return "application/rtf";
+  }
+
+  return reported;
+}
 
 function fileNameForMime(
   mimeType: SupportedMimeType,
@@ -166,7 +180,7 @@ class ContentPush {
       return;
     }
 
-    return this.push(file, file.type || "application/octet-stream", file.name);
+    return this.push(file, mimeTypeForFile(file), file.name);
   }
 
   private async push(
@@ -381,7 +395,39 @@ async function onFileInputChange(event: Event) {
   appError.value = error ?? "";
 }
 
+function registerFileHandler() {
+  const launchQueue = (
+    window as Window & {
+      launchQueue?: {
+        setConsumer(
+          callback: (launchParams: { files: FileSystemFileHandle[] }) => void,
+        ): void;
+      };
+    }
+  ).launchQueue;
+
+  if (!launchQueue) {
+    return;
+  }
+
+  launchQueue.setConsumer((launchParams) => {
+    void (async () => {
+      const handle = launchParams.files[0];
+      if (!handle) {
+        return;
+      }
+
+      const error = await contentPush.fromFile(await handle.getFile());
+      if (error) {
+        appError.value = error;
+      }
+    })();
+  });
+}
+
 const onPageMount = () => {
+  registerFileHandler();
+
   void socket.connect({ interactive: false }).then(() => {
     socket.start();
   });
@@ -473,12 +519,17 @@ export default HTMLPage({
         onFileInputChange,
       }),
       m.If({
+        subject: contentPush.busy,
+        isTruthy: () =>
+          ListMessage({ isListLoading: true, isPushingFile: true }),
+      }),
+      m.If({
         subject: isListLoading,
-        isTruthy: () => EmptyListMessage({ isListLoading: true }),
+        isTruthy: () => ListMessage({ isListLoading: true }),
         isFalsy: () =>
           m.If({
             subject: items.is.length.truthy(),
-            isFalsy: () => EmptyListMessage({ isListLoading: false }),
+            isFalsy: () => ListMessage({ isListLoading: false }),
             isTruthy: () =>
               m.Ul({
                 class: css("item-grid"),

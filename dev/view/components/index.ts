@@ -1,4 +1,4 @@
 export * from "./ContentInput";
 export * from "./FileTile";
-export * from "./EmptyListMessage";
+export * from "./ListMessage";
 export * from "./HTMLPage";

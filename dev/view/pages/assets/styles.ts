@@ -36,6 +36,7 @@ export const atomicClassOverrides = {
     mxh7: "{ max-height: 48rem; }",
     mxh8: "{ max-height: 64rem; }",
     mxh9: "{ max-height: 96rem; }",
+    "break-word": "{ overflow-wrap: break-word; }",
     "w-fill": "{ width: -webkit-fill-available; }",
   },
 } as const satisfies AtomicClassOverrides;
@@ -53,7 +54,7 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
     "flex items-center justify-between ma0 pa2 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
   "history-hint": "mt1 mb4 mh0 mid-gray f5",
   "history-error": "mh0 pa3 br3 theme bg-washed-red",
-  "history-empty": "ma0 pa3 ba bw1 br3 b--dashed b--silver gray",
+  "items-message": "ma0 mv3 pa3 tc mid-gray f5 fw7",
   "offline-banner": "mh0 mv4 pa3 br3 white bg-theme",
   "input-row": "flex mh0 mv4 mb3 pa0 list",
   "paste-zone":
@@ -63,13 +64,15 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
-  "item-tile": "mt0 mh0 mb3 pt3 ph3 pb0 f6 br3 bg-near-white pointer",
-  "item-text": "ma0 mb3 special-wrap f4",
+  "item-tile": "mt0 mh0 mb3 pt3 ph3 pb0 f6 br4 bg-near-white",
+  "item-text": "ma0 mb3 special-wrap f5",
   "item-preview": "db h-auto mw-100 mxh5 mb3 br2",
   "item-error": "ma0 mb3 red",
-  "item-file-footer": "flex justify-between mb3 gray f7 fw7",
-  "item-actions": "flex flex-wrap",
-  "item-button": "mb3 mr2 pa2 f6 ba bw1 br2 b--moon-gray bg-near-white pointer",
+  "item-actions":
+    "ph2 pt2 mb3 flex items-center justify-between br3 bg-moon-gray",
+  "item-file-name": "mb2 dark-gray f7 fw7 break-word overflow-auto",
+  "item-actions-buttons": "flex items-center",
+  "item-button": "mb2 ml2 pa2 f6 ba bw1 br3 b--moon-gray bg-near-white pointer",
 });
 
 export type { ClassNamesPhrase };

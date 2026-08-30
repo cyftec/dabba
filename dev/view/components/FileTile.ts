@@ -69,23 +69,28 @@ export const FileTile = component<FileTileProps>(
             }),
         }),
         m.Div({
-          class: css("item-file-footer"),
-          children: name,
-        }),
-        m.Div({
           class: css("item-actions"),
           children: [
-            m.Button({
-              type: "button",
-              class: css("item-button"),
-              onclick: onCopyClick,
-              children: copyLabel,
+            m.Div({
+              class: css("item-file-name"),
+              children: name,
             }),
-            m.Button({
-              type: "button",
-              class: css("item-button"),
-              onclick: onDownload,
-              children: "Download",
+            m.Div({
+              class: css("item-actions-buttons"),
+              children: [
+                m.Button({
+                  type: "button",
+                  class: css("item-button"),
+                  onclick: onCopyClick,
+                  children: copyLabel,
+                }),
+                m.Button({
+                  type: "button",
+                  class: css("item-button"),
+                  onclick: onDownload,
+                  children: "Download",
+                }),
+              ],
             }),
           ],
         }),
