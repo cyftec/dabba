@@ -28,6 +28,18 @@ const manifest: WebAppManifest & ChromeShareTargetManifest = {
       src: `${imagesPath}/192_dabba.png`,
       sizes: "192x192",
       type: "image/png",
+      purpose: "any",
+    },
+    {
+      src: `${imagesPath}/512_dabba.png`,
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "any",
+    },
+    {
+      src: `${imagesPath}/192_dabba.png`,
+      sizes: "192x192",
+      type: "image/png",
       purpose: "maskable",
     },
     {

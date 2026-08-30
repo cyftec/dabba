@@ -6,6 +6,18 @@
 			"src": "/assets/images/192_dabba.png",
 			"sizes": "192x192",
 			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/assets/images/512_dabba.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/assets/images/192_dabba.png",
+			"sizes": "192x192",
+			"type": "image/png",
 			"purpose": "maskable"
 		},
 		{
