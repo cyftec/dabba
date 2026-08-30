@@ -21,12 +21,13 @@ type DriveItem = {
 
 type FileTileProps = {
   item: DriveItem;
-  onDownload: () => void;
   onCopy: () => void;
+  onDelete: () => void;
+  onDownload: () => void;
 };
 
 export const FileTile = component<FileTileProps>(
-  ({ item, onDownload, onCopy }) => {
+  ({ item, onCopy, onDelete, onDownload }) => {
     const { name, mimeType } = item.props();
     const isError = derive(() => item.value.isError === true);
     const isText = mimeType.is.equalTo("text/plain");
@@ -118,7 +119,7 @@ export const FileTile = component<FileTileProps>(
                 m.Button({
                   type: "button",
                   class: css("item-button"),
-                  onclick: onCopyClick,
+                  onclick: onDelete,
                   children: "Delete",
                 }),
                 m.Button({

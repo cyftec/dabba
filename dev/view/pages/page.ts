@@ -117,6 +117,10 @@ function prependItem(item: DabbaItem) {
   ];
 }
 
+function removeItem(fileId: string) {
+  items.value = items.value.filter((item) => item.id !== fileId);
+}
+
 class ContentPush {
   private static readonly shareQuery = "share-target";
 
@@ -181,6 +185,41 @@ class ContentPush {
     }
 
     return this.push(file, mimeTypeForFile(file), file.name);
+  }
+
+  async deleteFile(fileId: string): Promise<string | undefined> {
+    if (this.busy.value) {
+      return;
+    }
+
+    const removed = items.value.find((item) => item.id === fileId);
+    removeItem(fileId);
+    updatesPaused.value = true;
+    setTimeout(() => (updatesPaused.value = false), 5000);
+
+    this.busy.value = true;
+
+    try {
+      try {
+        await socket.delete(fileId);
+      } catch (err) {
+        if (!(err instanceof NotAuthenticatedError)) {
+          throw err;
+        }
+
+        await socket.connect({ interactive: true });
+        await socket.delete(fileId);
+      }
+    } catch (err) {
+      if (removed) {
+        prependItem(removed);
+      }
+      updatesPaused.value = false;
+      console.error("Failed to delete file:", err);
+      return err instanceof Error ? err.message : "Could not delete file.";
+    } finally {
+      this.busy.value = false;
+    }
   }
 
   private async push(
@@ -332,6 +371,35 @@ function downloadItem(item: DabbaItem) {
   URL.revokeObjectURL(url);
 }
 
+async function copyNonPngImageToClipboard(blob: Blob) {
+  try {
+    // 2. Load the blob into an Image object
+    const img = new Image();
+    img.src = URL.createObjectURL(blob);
+    await new Promise((resolve) => (img.onload = resolve));
+
+    // 3. Draw the image onto an offscreen canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+    ctx.drawImage(img, 0, 0);
+
+    // 4. Export the canvas as a PNG blob
+    canvas.toBlob(async (pngBlob) => {
+      if (!pngBlob) throw new Error("Canvas export failed");
+
+      // 5. Write the PNG blob to the clipboard
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": pngBlob }),
+      ]);
+      console.log("Image copied successfully as a PNG!");
+    }, "image/png");
+  } catch (err) {
+    console.error("Failed to copy image: ", err);
+  }
+}
+
 async function copyItemContent(item: DabbaItem) {
   if (item.isError) {
     return;
@@ -346,9 +414,13 @@ async function copyItemContent(item: DabbaItem) {
     }
 
     if (item.mimeType.startsWith("image/")) {
-      await navigator.clipboard.write([
-        new ClipboardItem({ [item.mimeType]: item.fileBlob }),
-      ]);
+      if (item.mimeType === "image/png") {
+        await navigator.clipboard.write([
+          new ClipboardItem({ [item.mimeType]: item.fileBlob }),
+        ]);
+      } else {
+        await copyNonPngImageToClipboard(item.fileBlob);
+      }
       console.log(await navigator.clipboard.read());
     }
   } catch (err) {
@@ -539,8 +611,15 @@ export default HTMLPage({
                   map: (item) =>
                     FileTile({
                       item: item,
-                      onDownload: () => downloadItem(item.value),
                       onCopy: () => copyItemContent(item.value),
+                      onDelete: () => {
+                        void contentPush
+                          .deleteFile(item.value.id)
+                          .then((error) => {
+                            appError.value = error ?? "";
+                          });
+                      },
+                      onDownload: () => downloadItem(item.value),
                     }),
                 }),
               }),
