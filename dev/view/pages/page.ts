@@ -23,7 +23,7 @@ const GOOGLE_CLIENT_ID =
 const socket = new DriveSocket({
   clientId: GOOGLE_CLIENT_ID,
   folderName: "dabba-items",
-  pollIntervalInMs: 155_000,
+  pollIntervalInMs: 555_000,
   maxFiles: 15,
 });
 

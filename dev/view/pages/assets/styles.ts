@@ -47,12 +47,14 @@ type AppAtomicClassName = AppAtomicClassNames<
 >;
 
 export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
+  force:
+    "relative absolute right-1 top-1 right-2 top-2 left-1 z-0 z-1 nl3 pl1 pb0 nt1 mb2 shadow-2 br-100 pa1 pa2",
   history: "system-sans-serif mw7 ma0 pa3 center min-vh-100",
   "hero-row": "flex justify-between items-center mt3 mb2 mh0",
   "hero-title": "ma0 mr3",
   "refresh-page-button":
     "flex items-center justify-between ma0 pa2 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
-  "history-hint": "mt1 mb4 mh0 mid-gray f5",
+  "history-hint": "mt1 mb4 mh0 silver f6",
   "history-error": "mh0 pa3 br3 theme bg-washed-red",
   "items-message": "ma0 mv3 pa3 tc mid-gray f5 fw7",
   "offline-banner": "mh0 mv4 pa3 br3 white bg-theme",
@@ -64,9 +66,11 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
-  "item-tile": "mt0 mh0 mb3 pt3 ph3 pb0 f6 br4 bg-near-white",
-  "item-text": "ma0 mb3 special-wrap f5",
-  "item-preview": "db h-auto mw-100 mxh5 mb3 br2",
+  "item-tile": "relative mt0 mh0 mb3 pt3 ph3 pb0 f6 br4 bg-near-white",
+  "copy-icon":
+    "flex absolute right-1 top-1 shadow-1 br-100 pa1 pointer bg-white",
+  "item-text": "ma0 mb3 special-wrap f5 pointer",
+  "item-preview": "db h-auto mw-100 mxh5 mb3 br2 pointer",
   "item-error": "ma0 mb3 red",
   "item-actions":
     "ph2 pt2 mb3 flex items-center justify-between br3 bg-moon-gray",
