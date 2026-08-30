@@ -75,7 +75,7 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "item-error": "ma0 mb3 red",
   "item-actions":
     "ph2 pt2 flex items-center justify-between br--bottom br4 bg-moon-gray",
-  "item-file-name": "mb2 near-black f7 fw7 break-word overflow-auto",
+  "item-file-name": "ml2 mb2 near-black f7 fw7 break-word overflow-auto",
   "item-actions-buttons": "flex items-center",
   "item-button": "mb2 ml2 pa2 f6 ba bw1 br3 b--moon-gray bg-near-white pointer",
 });

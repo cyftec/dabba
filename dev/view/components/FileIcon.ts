@@ -12,7 +12,7 @@ type FileIconProps = {
 export const FileIcon = component<FileIconProps>(
   ({ size, color, extension }) => {
     const sizePx = tmpl`${size}px`;
-    const fontSizePx = tmpl`${() => size.value / 5}px`;
+    const fontSizePx = tmpl`${() => size.value / 8}px`;
     const fillColor = nonSignal(color).or("#000");
 
     return m.Div({
