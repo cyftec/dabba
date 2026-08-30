@@ -28,11 +28,13 @@ const manifest: WebAppManifest & ChromeShareTargetManifest = {
       src: `${imagesPath}/192_dabba.png`,
       sizes: "192x192",
       type: "image/png",
+      purpose: "maskable",
     },
     {
       src: `${imagesPath}/512_dabba.png`,
       sizes: "512x512",
       type: "image/png",
+      purpose: "maskable",
     },
   ],
   start_url: "/",
@@ -40,6 +42,7 @@ const manifest: WebAppManifest & ChromeShareTargetManifest = {
   display: "standalone",
   theme_color: "#ee4440",
   background_color: "#ffffff",
+
   share_target: {
     action: "/share",
     method: "POST",
