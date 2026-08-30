@@ -57,54 +57,61 @@ export const FileTile = component<FileTileProps>(
     return m.Li({
       class: css("item-tile"),
       children: [
-        m.If({
-          subject: isError,
-          isTruthy: () =>
-            m.P({
-              class: css("item-error"),
-              children: derive(() => `Error downloading ${item.value.name}.`),
-            }),
-          isFalsy: () =>
+        m.Div({
+          class: css("item-content"),
+          children: [
             m.If({
-              subject: isText,
+              subject: isError,
               isTruthy: () =>
                 m.P({
-                  class: css("item-text"),
-                  children: text,
+                  class: css("item-error"),
+                  children: derive(
+                    () => `Error downloading ${item.value.name}.`,
+                  ),
                 }),
               isFalsy: () =>
                 m.If({
-                  subject: isImage,
+                  subject: isText,
                   isTruthy: () =>
+                    m.P({
+                      class: css("item-text"),
+                      children: text,
+                    }),
+                  isFalsy: () =>
                     m.If({
-                      subject: previewUrl,
-                      isTruthy: (subjectPreviewUrl) =>
-                        m.Img({
-                          class: css("item-preview"),
-                          alt: name,
-                          src: subjectPreviewUrl,
+                      subject: isImage,
+                      isTruthy: () =>
+                        m.If({
+                          subject: previewUrl,
+                          isTruthy: (subjectPreviewUrl) =>
+                            m.Img({
+                              class: css("item-preview"),
+                              alt: name,
+                              src: subjectPreviewUrl,
+                            }),
                         }),
                     }),
                 }),
             }),
-        }),
-        m.If({
-          subject: textOrImage,
-          isTruthy: () =>
-            m.Div({
-              onclick: onCopyClick,
-              class: css("copy-icon"),
-              children: Icon({ name: copyIconName, color: copyIconColor }),
+            m.If({
+              subject: textOrImage,
+              isTruthy: () =>
+                m.Div({
+                  onclick: onCopyClick,
+                  class: css("copy-icon"),
+                  children: Icon({ name: copyIconName, color: copyIconColor }),
+                }),
+              isFalsy: () =>
+                m.Div({
+                  class: css("nl3 nt1 pl1 mb2"),
+                  children: FileIcon({
+                    size: 80,
+                    color: fileExtensionColor,
+                    extension: fileExtension,
+                  }),
+                }),
             }),
-          isFalsy: () =>
-            m.Div({
-              class: css("nl3 nt1 pl1 mb2"),
-              children: FileIcon({
-                size: 80,
-                color: fileExtensionColor,
-                extension: fileExtension,
-              }),
-            }),
+          ],
         }),
         m.Div({
           class: css("item-actions"),

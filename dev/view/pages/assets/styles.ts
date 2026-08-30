@@ -66,15 +66,16 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
-  "item-tile": "relative mt0 mh0 mb3 pt3 ph3 pb0 f6 br4 bg-near-white",
+  "item-tile": "ma0 mb3 f6 br4 bg-near-white",
+  "item-content": "relative pt3 ph3 pb0",
   "copy-icon":
     "flex absolute right-1 top-1 shadow-1 br-100 pa1 pointer bg-white",
   "item-text": "ma0 mb3 special-wrap f5 pointer",
   "item-preview": "db h-auto mw-100 mxh5 mb3 br2 pointer",
   "item-error": "ma0 mb3 red",
   "item-actions":
-    "ph2 pt2 mb3 flex items-center justify-between br3 bg-moon-gray",
-  "item-file-name": "mb2 dark-gray f7 fw7 break-word overflow-auto",
+    "ph2 pt2 flex items-center justify-between br--bottom br4 bg-moon-gray",
+  "item-file-name": "mb2 near-black f7 fw7 break-word overflow-auto",
   "item-actions-buttons": "flex items-center",
   "item-button": "mb2 ml2 pa2 f6 ba bw1 br3 b--moon-gray bg-near-white pointer",
 });
