@@ -5,10 +5,11 @@ type HTMLPageProps = {
   body: Child;
   onMount?: () => void;
   onUnmount?: () => void;
+  title?: string;
 };
 
 export const HTMLPage = component<HTMLPageProps>(
-  ({ cssClasses, body, onMount, onUnmount }) => {
+  ({ cssClasses, body, onMount, onUnmount, title = "Dabba (by Cyfer)" }) => {
     return m.Html({
       lang: "en",
       children: [
@@ -27,7 +28,7 @@ export const HTMLPage = component<HTMLPageProps>(
                 base-uri 'none';
               `,
             }),
-            m.Title("Dabba (by Cyfer)"),
+            m.Title(title),
             m.Link({
               rel: "icon",
               type: "image/x-icon",

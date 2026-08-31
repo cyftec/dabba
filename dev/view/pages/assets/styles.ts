@@ -38,6 +38,10 @@ export const atomicClassOverrides = {
     mxh9: "{ max-height: 96rem; }",
     "break-word": "{ overflow-wrap: break-word; }",
     "w-fill": "{ width: -webkit-fill-available; }",
+    "footer-link":
+      "{ color: inherit; text-decoration: none; } .footer-link:hover, .footer-link:focus-visible { text-decoration: underline; }",
+    "legal-link":
+      "{ color: #e44400; text-decoration: underline; text-underline-offset: 0.15em; }",
   },
 } as const satisfies AtomicClassOverrides;
 
@@ -78,6 +82,20 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "item-file-name": "ml2 mb2 near-black f7 fw7 break-word overflow-auto",
   "item-actions-buttons": "flex items-center",
   "item-button": "mb2 ml2 pa2 f6 ba bw1 br3 b--moon-gray bg-near-white pointer",
+  "site-footer":
+    "mt5 pt4 bt b--moon-gray tc system-sans-serif mid-gray f6",
+  "site-footer-brand":
+    "footer-link inline-flex items-center justify-center mb3 near-black fw6 f6 no-underline",
+  "site-footer-logo": "mr2 br2",
+  "site-footer-links": "flex justify-center items-center mb3 f6",
+  "site-footer-maya":
+    "ma0 pa2 br2 theme bg-washed-yellow f7 fw6",
+  "legal-page": "system-sans-serif mw7 ma0 pa3 center min-vh-100",
+  "legal-title": "ma0 mt3 mb4 near-black f3 fw7",
+  "legal-heading": "mt4 mb2 near-black f4 fw6",
+  "legal-content": "mh0 mb4 mid-gray f5 lh-copy",
+  "legal-back-button":
+    "footer-link db tc mb4 pa2 f6 fw7 ba bw1 br3 b--moon-gray bg-white pointer no-underline",
 });
 
 export type { ClassNamesPhrase };

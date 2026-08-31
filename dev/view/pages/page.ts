@@ -14,6 +14,7 @@ import {
   FileTile,
   ListMessage,
   HTMLPage,
+  SiteFooter,
 } from "../components/index";
 import { Icon } from "../components/Icon";
 
@@ -574,7 +575,7 @@ export default HTMLPage({
       m.P({
         class: css("history-hint"),
         children:
-          "Paste clipboard content or open a file to share it across your devices via Google Drive.",
+          "Copy a text or a file on this device, paste it below and have it available on all your other devices. Dabba share them across your devices via Google Drive.",
       }),
       m.If({
         subject: appError,
@@ -625,6 +626,7 @@ export default HTMLPage({
               }),
           }),
       }),
+      SiteFooter({}),
     ],
   }),
 });
