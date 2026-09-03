@@ -37,6 +37,8 @@ export const atomicClassOverrides = {
     mxh7: "{ max-height: 48rem; }",
     mxh8: "{ max-height: 64rem; }",
     mxh9: "{ max-height: 96rem; }",
+    "bg-transition": "{ transition: background-color 2s ease-out; }",
+    "click-to-copy:active": "{ background-color: #cad9e7; transition: none; }",
     "break-word": "{ overflow-wrap: break-word; }",
     "w-fill": "{ width: -webkit-fill-available; }",
     "footer-link":
@@ -73,6 +75,7 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "item-grid": "flex flex-column mt2 mb4 mh0 pa0 list",
   "item-tile": "ma0 mt2 mb3 pa2 f6 br4 bg-light-gray",
   "item-content": "relative pa2 br3 bg-white",
+  "item-content-clickable": "bg-transition click-to-copy",
   "item-tile-header": "flex items-center justify-between pt2 f7",
   "item-file-name":
     "flex items-center light-silver fw7 break-word overflow-auto",

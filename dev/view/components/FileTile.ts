@@ -50,18 +50,23 @@ export const FileTile = component<FileTileProps>(
     );
     const textOrImage = op(isText).or(isImage).truthy;
 
+    const copyLabel = resettableSignal<string>("Copy", 2000);
     const copyIconName = resettableSignal<IconName>("content_copy", 2000);
     const copyIconColor = resettableSignal<string>("#666", 2000);
+    const downloadLabel = resettableSignal<string>("Download", 2000);
     const downloadIconName = resettableSignal<IconName>("download", 2000);
     const downloadIconColor = resettableSignal<string>("#666", 2000);
 
     const onCopyClick = () => {
+      if (!textOrImage.value) return;
+      copyLabel.value = "Copied";
       copyIconName.value = "done_all";
       copyIconColor.value = "dodgerblue";
       onCopy();
     };
 
     const onDownloadClick = () => {
+      downloadLabel.value = "Downloaded";
       downloadIconName.value = "download_done";
       downloadIconColor.value = "dodgerblue";
       onDownload();
@@ -71,7 +76,11 @@ export const FileTile = component<FileTileProps>(
       class: css("item-tile"),
       children: [
         m.Div({
-          class: css("item-content"),
+          class: css(
+            "item-content",
+            css.when(textOrImage, "item-content-clickable", ""),
+          ),
+          onclick: onCopyClick,
           children: [
             m.If({
               subject: isError,
@@ -155,22 +164,6 @@ export const FileTile = component<FileTileProps>(
             m.Div({
               class: css("item-actions-buttons"),
               children: [
-                m.Button({
-                  type: "button",
-                  class: css("item-action-button button-normal"),
-                  onclick: onDownloadClick,
-                  children: [
-                    Icon({
-                      size: 16,
-                      name: downloadIconName,
-                      color: downloadIconColor,
-                    }),
-                    m.Span({
-                      class: css("icon-button-label"),
-                      children: "Download",
-                    }),
-                  ],
-                }),
                 m.If({
                   subject: textOrImage,
                   isTruthy: () =>
@@ -186,10 +179,26 @@ export const FileTile = component<FileTileProps>(
                         }),
                         m.Span({
                           class: css("icon-button-label"),
-                          children: "Copy",
+                          children: copyLabel,
                         }),
                       ],
                     }),
+                }),
+                m.Button({
+                  type: "button",
+                  class: css("item-action-button button-normal"),
+                  onclick: onDownloadClick,
+                  children: [
+                    Icon({
+                      size: 16,
+                      name: downloadIconName,
+                      color: downloadIconColor,
+                    }),
+                    m.Span({
+                      class: css("icon-button-label"),
+                      children: downloadLabel,
+                    }),
+                  ],
                 }),
               ],
             }),
