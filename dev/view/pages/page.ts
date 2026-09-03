@@ -498,7 +498,15 @@ async function copyItemContent(item: DabbaItem) {
   }
 }
 
+let lastPageRefresh = 0;
 async function clearAppStorage() {
+  if (Date.now() - lastPageRefresh > 15000) {
+    console.log(`Only refreshing the page.`);
+    location.reload();
+    lastPageRefresh = Date.now();
+    return;
+  }
+
   await disconnectSocket();
 
   const cacheKeys = await caches.keys();
@@ -515,6 +523,7 @@ async function clearAppStorage() {
   }
 
   location.reload();
+  lastPageRefresh = Date.now();
 }
 
 async function onPasteZoneTap() {
