@@ -1,7 +1,7 @@
 import {
   DriveSocket,
+  getOAuthSingleton,
   mimeToExtension,
-  NotAuthenticatedError,
   supportedMimeType,
   type DriveMessage,
   type SupportedMimeType,
@@ -18,15 +18,65 @@ import {
 } from "../components/index";
 import { Icon } from "../components/Icon";
 
-const GOOGLE_CLIENT_ID =
-  "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com";
+const GOOGLE_CLIENT_IDS = {
+  DEV: "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com",
+  PROD: "862232516752-hg9nokmukb7vut7qlf97d613lmtvum5a.apps.googleusercontent.com",
+};
+const GOOGLE_DRIVE_APPDATA_SCOPE =
+  "https://www.googleapis.com/auth/drive.appdata";
 
-const socket = new DriveSocket({
-  clientId: GOOGLE_CLIENT_ID,
-  folderName: "dabba-items",
-  pollIntervalInMs: 555_000,
-  maxFiles: 15,
+const oauth = getOAuthSingleton({
+  googleApiClientId: GOOGLE_CLIENT_IDS.PROD,
+  googleOAuthTokenScopes: GOOGLE_DRIVE_APPDATA_SCOPE,
 });
+
+const socketConfig = {
+  clientType: "single-tenant" as const,
+  rootPath: "dabba-items",
+  pollIntervalInMs: 10_000,
+  maxFiles: 15,
+};
+
+let socket: DriveSocket | null = null;
+let drivePollingReady = false;
+
+function bindSocketReceive(connectedSocket: DriveSocket) {
+  connectedSocket.onReceive((messages) => {
+    if (updatesPaused.value) return;
+
+    void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
+      items.value = nextItems;
+      firstUpdateFinished.value = true;
+    });
+  });
+}
+
+async function openSocket(): Promise<DriveSocket> {
+  await oauth.authenticate();
+  const connectedSocket = await DriveSocket.connect(socketConfig, oauth);
+  bindSocketReceive(connectedSocket);
+  socket = connectedSocket;
+  return connectedSocket;
+}
+
+async function ensureSocketForWrite(): Promise<DriveSocket> {
+  if (socket) return socket;
+
+  const connectedSocket = await openSocket();
+  if (!drivePollingReady) {
+    connectedSocket.start();
+    drivePollingReady = true;
+  }
+  return connectedSocket;
+}
+
+async function disconnectSocket(): Promise<void> {
+  if (!socket) return;
+
+  await socket.disconnect();
+  socket = null;
+  drivePollingReady = false;
+}
 
 type DabbaItem = DriveMessage & {
   mimeType: string;
@@ -201,16 +251,8 @@ class ContentPush {
     this.busy.value = true;
 
     try {
-      try {
-        await socket.delete(fileId);
-      } catch (err) {
-        if (!(err instanceof NotAuthenticatedError)) {
-          throw err;
-        }
-
-        await socket.connect({ interactive: true });
-        await socket.delete(fileId);
-      }
+      const activeSocket = await ensureSocketForWrite();
+      await activeSocket.delete(fileId);
     } catch (err) {
       if (removed) {
         prependItem(removed);
@@ -238,17 +280,8 @@ class ContentPush {
       const fileName = fileNameForMime(mimeType, preferredName);
       const pushOptions = { mimeType, fileName };
 
-      let message;
-      try {
-        message = await socket.push(fileBlob, pushOptions);
-      } catch (err) {
-        if (!(err instanceof NotAuthenticatedError)) {
-          throw err;
-        }
-
-        await socket.connect({ interactive: true });
-        message = await socket.push(fileBlob, pushOptions);
-      }
+      const activeSocket = await ensureSocketForWrite();
+      const message = await activeSocket.push(fileBlob, pushOptions);
       prependItem(await toDabbaItem(message));
       updatesPaused.value = true;
       setTimeout(() => (updatesPaused.value = false), 5000);
@@ -347,16 +380,50 @@ class ContentPush {
   }
 }
 
-socket.onReceive((messages) => {
-  if (updatesPaused.value) return;
-
-  void Promise.all(messages.map(toDabbaItem)).then((nextItems) => {
-    items.value = nextItems;
-    firstUpdateFinished.value = true;
-  });
-});
-
 const contentPush = new ContentPush();
+
+async function startDrivePolling(): Promise<void> {
+  try {
+    const connectedSocket = await openSocket();
+    connectedSocket.start();
+    drivePollingReady = true;
+  } catch (err) {
+    console.error("Failed to start drive polling:", err);
+    firstUpdateFinished.value = true;
+  }
+}
+
+function resumeDrivePolling() {
+  if (!drivePollingReady || !socket) return;
+  socket.start();
+}
+
+const onPageMount = () => {
+  registerFileHandler();
+
+  void startDrivePolling().then(() =>
+    contentPush.consumePendingShare().then((shareError) => {
+      if (shareError) {
+        appError.value = shareError;
+      }
+    }),
+  );
+
+  window.addEventListener("blur", () => socket?.pause());
+  window.addEventListener("focus", resumeDrivePolling);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      console.log(`pausing poll on visiblity hidden`);
+      socket?.pause();
+    } else {
+      resumeDrivePolling();
+    }
+  });
+};
+
+const onPageUnmount = () => {
+  void disconnectSocket();
+};
 const zonesDisabled = derive(() => contentPush.busy.value);
 
 function downloadItem(item: DabbaItem) {
@@ -432,7 +499,7 @@ async function copyItemContent(item: DabbaItem) {
 }
 
 async function clearAppStorage() {
-  await socket.disconnect();
+  await disconnectSocket();
 
   const cacheKeys = await caches.keys();
   await Promise.all(cacheKeys.map((key) => caches.delete(key)));
@@ -497,42 +564,6 @@ function registerFileHandler() {
     })();
   });
 }
-
-const onPageMount = () => {
-  registerFileHandler();
-
-  void socket.connect({ interactive: false }).then(() => {
-    socket.start();
-  });
-
-  void contentPush.consumePendingShare().then((shareError) => {
-    if (shareError) {
-      appError.value = shareError;
-    }
-  });
-
-  window.addEventListener("pagehide", () => socket.pause());
-  window.addEventListener("beforeunload", () => socket.pause());
-  window.addEventListener("focus", () => socket.start());
-  window.addEventListener("pageshow", () => {
-    if (document.visibilityState === "visible") socket.start();
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      socket.pause();
-    } else {
-      socket.start();
-    }
-  });
-
-  if (document.visibilityState === "visible") {
-    socket.start();
-  }
-};
-
-const onPageUnmount = () => {
-  void socket.disconnect();
-};
 
 export default HTMLPage({
   onMount: onPageMount,
