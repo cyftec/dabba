@@ -66,6 +66,10 @@ export const FileTile = component<FileTileProps>(
         m.Div({
           class: css("item-content"),
           children: [
+            m.Div({
+              class: css("item-file-name"),
+              children: name,
+            }),
             m.If({
               subject: isError,
               isTruthy: () =>
@@ -116,31 +120,47 @@ export const FileTile = component<FileTileProps>(
         m.Div({
           class: css("item-actions"),
           children: [
-            m.Div({
-              class: css("item-file-name"),
+            m.Button({
+              type: "button",
+              class: css("item-action-button button-warn"),
+              onclick: onDelete,
               children: [
-                m.Button({
-                  type: "button",
-                  class: css("button-warn icon-container"),
-                  onclick: onDelete,
-                  children: Icon({
-                    size: 16,
-                    name: "delete",
-                    color: "#bb3c05",
-                  }),
+                Icon({
+                  size: 16,
+                  name: "delete",
+                  color: "#bb3c05",
                 }),
-                m.Span(name),
+                m.Span({
+                  class: css("icon-button-label"),
+                  children: "Delete",
+                }),
               ],
             }),
             m.Div({
               class: css("item-actions-buttons"),
               children: [
+                m.Button({
+                  type: "button",
+                  class: css("item-action-button button-normal"),
+                  onclick: onDownloadClick,
+                  children: [
+                    Icon({
+                      size: 16,
+                      name: downloadIconName,
+                      color: downloadIconColor,
+                    }),
+                    m.Span({
+                      class: css("icon-button-label"),
+                      children: "Download File",
+                    }),
+                  ],
+                }),
                 m.If({
                   subject: textOrImage,
                   isTruthy: () =>
                     m.Button({
                       type: "button",
-                      class: css("icon-button icon-container"),
+                      class: css("item-action-button button-normal"),
                       onclick: onCopyClick,
                       children: [
                         Icon({
@@ -154,22 +174,6 @@ export const FileTile = component<FileTileProps>(
                         }),
                       ],
                     }),
-                }),
-                m.Button({
-                  type: "button",
-                  class: css("icon-button icon-container"),
-                  onclick: onDownloadClick,
-                  children: [
-                    Icon({
-                      size: 16,
-                      name: downloadIconName,
-                      color: downloadIconColor,
-                    }),
-                    m.Span({
-                      class: css("icon-button-label"),
-                      children: "Download",
-                    }),
-                  ],
                 }),
               ],
             }),

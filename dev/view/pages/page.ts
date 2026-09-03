@@ -15,6 +15,7 @@ import {
   ListMessage,
   HTMLPage,
   SiteFooter,
+  Title,
 } from "../components/index";
 import { Icon } from "../components/Icon";
 import { resettableSignal } from "@controllers/resettable-signal";
@@ -650,30 +651,38 @@ export default HTMLPage({
         subject: isListLoading,
         isTruthy: () => ListMessage({ isListLoading: true }),
         isFalsy: () =>
-          m.If({
-            subject: items.is.length.truthy(),
-            isFalsy: () => ListMessage({ isListLoading: false }),
-            isTruthy: () =>
-              m.Ul({
-                class: css("item-grid"),
-                children: m.For({
-                  subject: items,
-                  itemKey: "id",
-                  map: (item) =>
-                    FileTile({
-                      item: item,
-                      onCopy: () => copyItemContent(item.value),
-                      onDelete: () => {
-                        void contentPush
-                          .deleteFile(item.value.id)
-                          .then((error) => {
-                            appError.value = error ?? "";
-                          });
-                      },
-                      onDownload: () => downloadItem(item.value),
-                    }),
-                }),
+          m.Div({
+            children: [
+              Title({
+                classNames: css("section-title"),
+                text: "COPIED ITEMS",
               }),
+              m.If({
+                subject: items.is.length.truthy(),
+                isFalsy: () => ListMessage({ isListLoading: false }),
+                isTruthy: () =>
+                  m.Ul({
+                    class: css("item-grid"),
+                    children: m.For({
+                      subject: items,
+                      itemKey: "id",
+                      map: (item) =>
+                        FileTile({
+                          item: item,
+                          onCopy: () => copyItemContent(item.value),
+                          onDelete: () => {
+                            void contentPush
+                              .deleteFile(item.value.id)
+                              .then((error) => {
+                                appError.value = error ?? "";
+                              });
+                          },
+                          onDownload: () => downloadItem(item.value),
+                        }),
+                    }),
+                  }),
+              }),
+            ],
           }),
       }),
       SiteFooter({}),

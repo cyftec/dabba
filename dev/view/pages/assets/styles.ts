@@ -69,34 +69,37 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
     "flex flex-column tc items-center w-fill ml2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
-  "item-grid": "flex flex-column mv4 mh0 pa0 list",
-  "item-tile": "ma0 mb4 pa2 f6 br4 bg-near-white",
-  "item-content": "relative pa3 br3 mid-gray bg-white",
-  "item-text": "ma0 special-wrap f5 pointer",
+  "section-title": "silver f6",
+  "item-grid": "flex flex-column mb4 mh0 pa0 list",
+  "item-tile": "ma0 mb3 pa2 f6 br4 bg-near-white",
+  "item-content": "relative pa2 br3 gray bg-white",
+  "item-text": "ma0 special-wrap f4 pointer",
   "item-preview": "db h-auto mw-100 mxh5 br2 pointer",
   "item-file-icon": "nl3 pl1 nt2 nb2 pb1",
+  "item-file-name":
+    "flex items-center pb2 mb1 near-black f7 fw7 break-word overflow-auto",
   "item-error": "ma0 mb3 red",
   "item-actions":
     "pt2 pb0 flex items-center justify-between br--bottom br4 bg-transparent",
-  "button-warn": "b--dull-red mr2 pointer",
-  "icon-container": "pa1 ba bw1 br3",
-  "item-file-name":
-    "flex items-center near-black f7 fw7 break-word overflow-auto",
+  "button-warn": "b--dull-red pointer",
+  "button-normal": "ml2 pr2",
+  "item-action-button":
+    "flex items-center pa1 ba bw1 br3 b--moon-gray bg-near-white pointer",
+  "icon-button-label": "ml1 f7 fw7",
   "item-actions-buttons": "flex items-center",
   "icon-button": "flex items-center ml2 pr2 b--moon-gray bg-near-white pointer",
-  "icon-button-label": "ml1 f7 fw7",
-  "site-footer": "mt5 pt4 bt b--moon-gray tc system-sans-serif mid-gray f6",
-  "site-footer-brand":
-    "footer-link inline-flex items-center justify-center mb3 near-black fw6 f6 no-underline",
-  "site-footer-logo": "mr2 br2",
-  "site-footer-links": "flex justify-center items-center mb3 f6",
-  "site-footer-maya": "ma0 pa2 br2 theme bg-washed-yellow f7 fw6",
   "legal-page": "system-sans-serif mw7 ma0 pa3 center min-vh-100",
   "legal-title": "ma0 mt3 mb4 near-black f3 fw7",
   "legal-heading": "mt4 mb2 near-black f4 fw6",
   "legal-content": "mh0 mb4 mid-gray f5 lh-copy",
   "legal-back-button":
     "footer-link db tc mb4 pa2 f6 fw7 ba bw1 br3 b--moon-gray bg-white pointer no-underline",
+  "site-footer": "mt5 pt4 bt b--moon-gray tc system-sans-serif mid-gray f6",
+  "site-footer-brand":
+    "footer-link inline-flex items-center justify-center mb3 near-black fw6 f6 no-underline",
+  "site-footer-logo": "mr2 br2",
+  "site-footer-links": "flex justify-center items-center mb3 f6",
+  "site-footer-maya": "ma0 pa2 br2 theme bg-washed-yellow f7 fw6",
 });
 
 export type { ClassNamesPhrase };
