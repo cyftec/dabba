@@ -28,7 +28,7 @@ const GOOGLE_DRIVE_APPDATA_SCOPE =
   "https://www.googleapis.com/auth/drive.appdata";
 
 const oauth = getOAuthSingleton({
-  googleApiClientId: GOOGLE_CLIENT_IDS.DEV,
+  googleApiClientId: GOOGLE_CLIENT_IDS.PROD,
   googleOAuthTokenScopes: GOOGLE_DRIVE_APPDATA_SCOPE,
 });
 
