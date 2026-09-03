@@ -54,7 +54,7 @@ export const karma: Karma = {
     name: "dabba",
     appType: "pwa",
     dependencies: {
-      "@cyftec/drive-socket": "0.5.0",
+      "@cyftec/drive-socket": "0.5.1",
       "@cyftec/maya": "0.2.5",
     },
     devDependencies: {

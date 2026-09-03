@@ -13,6 +13,7 @@ import { Icon, IconName } from "./Icon";
 type DriveItem = {
   id: string;
   name: string;
+  createdTime: string;
   mimeType: string;
   fileBlob: Blob;
   isError?: boolean;
@@ -35,6 +36,12 @@ export const FileTile = component<FileTileProps>(
     const isImage = mimeType.startsWith("image/");
     const text = derive(() => item.value.text ?? "EMPTY");
     const previewUrl = derive(() => item.value.previewUrl);
+    const createdTime = derive(() =>
+      new Date(item.value.createdTime).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    );
     const fileExtension = derive(
       () => MIME_TO_EXTENSION[mimeType.value as SupportedMimeType],
     );
@@ -66,10 +73,6 @@ export const FileTile = component<FileTileProps>(
         m.Div({
           class: css("item-content"),
           children: [
-            m.Div({
-              class: css("item-file-name"),
-              children: name,
-            }),
             m.If({
               subject: isError,
               isTruthy: () =>
@@ -115,6 +118,19 @@ export const FileTile = component<FileTileProps>(
                   }),
                 }),
             }),
+            m.Div({
+              class: css("item-tile-header"),
+              children: [
+                m.Div({
+                  class: css("item-file-name"),
+                  children: name,
+                }),
+                m.Div({
+                  class: css("item-created-time"),
+                  children: createdTime,
+                }),
+              ],
+            }),
           ],
         }),
         m.Div({
@@ -151,7 +167,7 @@ export const FileTile = component<FileTileProps>(
                     }),
                     m.Span({
                       class: css("icon-button-label"),
-                      children: "Download File",
+                      children: "Download",
                     }),
                   ],
                 }),

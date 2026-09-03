@@ -291,10 +291,9 @@ class ContentPush {
 
     try {
       const fileName = fileNameForMime(mimeType, preferredName);
-      const pushOptions = { mimeType, fileName };
 
       const activeSocket = await ensureSocketForWrite();
-      const message = await activeSocket.push(fileBlob, pushOptions);
+      const message = await activeSocket.push({ fileBlob, mimeType, fileName });
       prependItem(await toDabbaItem(message));
       updatesPaused.value = true;
       setTimeout(() => (updatesPaused.value = false), 5000);

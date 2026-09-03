@@ -21,7 +21,7 @@ export const ContentInput = component<ContentInputProps>(
           onclick: onPasteZoneTap,
           children: [
             Icon({
-              classNames: css("flex self-center mt1 mb3"),
+              classNames: css("flex self-center mb3"),
               name: "content_copy",
             }),
             m.P({
@@ -30,7 +30,7 @@ export const ContentInput = component<ContentInputProps>(
             }),
             m.P({
               class: css("zone-hint"),
-              children: "Click here, then allow clipboard access to upload.",
+              children: "Click here to paste & push content to Google Drive",
             }),
           ],
         }),
@@ -38,7 +38,7 @@ export const ContentInput = component<ContentInputProps>(
           class: css("file-zone"),
           children: [
             Icon({
-              classNames: css("flex self-center mt1 mb3"),
+              classNames: css("flex self-center mb3"),
               name: "folder_open",
             }),
             m.P({
@@ -47,7 +47,7 @@ export const ContentInput = component<ContentInputProps>(
             }),
             m.P({
               class: css("zone-hint"),
-              children: "Choose a file to push to Google Drive.",
+              children: "Choose a file from device and push to Google Drive.",
             }),
             m.Input({
               type: "file",
