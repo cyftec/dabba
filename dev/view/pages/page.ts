@@ -17,6 +17,7 @@ import {
   SiteFooter,
 } from "../components/index";
 import { Icon } from "../components/Icon";
+import { resettableSignal } from "@controllers/resettable-signal";
 
 const GOOGLE_CLIENT_IDS = {
   DEV: "862232516752-sn8vjtdkrhdfuf5lr6kej43kceap6d10.apps.googleusercontent.com",
@@ -39,6 +40,7 @@ const socketConfig = {
 
 let socket: DriveSocket | null = null;
 let drivePollingReady = false;
+let openSocketTask: Promise<DriveSocket> | null = null;
 
 function bindSocketReceive(connectedSocket: DriveSocket) {
   connectedSocket.onReceive((messages) => {
@@ -52,11 +54,20 @@ function bindSocketReceive(connectedSocket: DriveSocket) {
 }
 
 async function openSocket(): Promise<DriveSocket> {
-  await oauth.authenticate();
-  const connectedSocket = await DriveSocket.connect(socketConfig, oauth);
-  bindSocketReceive(connectedSocket);
-  socket = connectedSocket;
-  return connectedSocket;
+  if (socket) return socket;
+  if (openSocketTask) return openSocketTask;
+
+  openSocketTask = (async () => {
+    await oauth.authenticate();
+    const connectedSocket = await DriveSocket.connect(socketConfig, oauth);
+    bindSocketReceive(connectedSocket);
+    socket = connectedSocket;
+    return connectedSocket;
+  })().finally(() => {
+    openSocketTask = null;
+  });
+
+  return openSocketTask;
 }
 
 async function ensureSocketForWrite(): Promise<DriveSocket> {
@@ -75,6 +86,7 @@ async function disconnectSocket(): Promise<void> {
 
   await socket.disconnect();
   socket = null;
+  openSocketTask = null;
   drivePollingReady = false;
 }
 
@@ -92,7 +104,7 @@ type SharePayload = {
 };
 
 const items = signal<DabbaItem[]>([]);
-const appError = signal("");
+const appError = resettableSignal<string>("", 5000);
 const updatesPaused = signal(false);
 const firstUpdateFinished = signal(false);
 const isListLoading = derive(

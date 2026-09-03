@@ -28,33 +28,32 @@ self.addEventListener("message", (event) => {
 });
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method === "POST" && url.pathname === SHARE_ACTION) {
-    event.respondWith((async () => {
-      const formData = await event.request.formData();
-      const files = [];
-      for (const entry of formData.getAll("files")) {
-        if (!(entry instanceof File) || entry.size === 0) {
-          continue;
-        }
-        files.push({
-          name: entry.name,
-          type: entry.type || "application/octet-stream",
-          dataUrl: await blobToDataUrl(entry)
-        });
-      }
-      pendingShare = {
-        title: String(formData.get("title") ?? ""),
-        text: String(formData.get("text") ?? ""),
-        url: String(formData.get("url") ?? ""),
-        files
-      };
-      const redirectUrl = new URL("/", self.location.origin);
-      redirectUrl.searchParams.set(SHARE_QUERY, "1");
-      return Response.redirect(redirectUrl.href, 303);
-    })());
+  if (event.request.method !== "POST" || url.pathname !== SHARE_ACTION) {
     return;
   }
-  event.respondWith(fetch(event.request));
+  event.respondWith((async () => {
+    const formData = await event.request.formData();
+    const files = [];
+    for (const entry of formData.getAll("files")) {
+      if (!(entry instanceof File) || entry.size === 0) {
+        continue;
+      }
+      files.push({
+        name: entry.name,
+        type: entry.type || "application/octet-stream",
+        dataUrl: await blobToDataUrl(entry)
+      });
+    }
+    pendingShare = {
+      title: String(formData.get("title") ?? ""),
+      text: String(formData.get("text") ?? ""),
+      url: String(formData.get("url") ?? ""),
+      files
+    };
+    const redirectUrl = new URL("/", self.location.origin);
+    redirectUrl.searchParams.set(SHARE_QUERY, "1");
+    return Response.redirect(redirectUrl.href, 303);
+  })());
 });
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

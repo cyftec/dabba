@@ -5,3 +5,4 @@ export * from "./LegalDocument";
 export * from "./ListMessage";
 export * from "./HTMLPage";
 export * from "./SiteFooter";
+export * from "./Title";

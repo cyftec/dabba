@@ -27,6 +27,7 @@ export const atomicClassOverrides = {
     "special-wrap": "{ white-space: pre-wrap; overflow-wrap: anywhere; }",
     "hidden-input":
       "{ position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }",
+    "b--dull-red": "{ border-color: #e1c1b3 }",
     mxh1: "{ max-height: 1rem; }",
     mxh2: "{ max-height: 2rem; }",
     mxh3: "{ max-height: 4rem; }",
@@ -58,11 +59,10 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "hero-title": "ma0 mr3",
   "refresh-page-button":
     "flex items-center justify-between ma0 pa2 f5 fw7 ba bw1 br3 b--moon-gray bg-white pointer",
-  "history-hint": "mt1 mb4 mh0 silver f6",
+  "history-hint": "mt1 mb3 mh0 silver f6",
   "history-error": "mh0 pa3 br3 theme bg-washed-red",
   "items-message": "ma0 mv3 pa3 tc mid-gray f5 fw7",
-  "offline-banner": "mh0 mv4 pa3 br3 white bg-theme",
-  "input-row": "flex mh0 mv4 mb3 pa0 list",
+  "input-row": "flex mh0 mt3 mb5 pa0 list",
   "paste-zone":
     "flex flex-column w-fill mr2 pa4 ba bw1 br3 b--dashed b--moon-gray pointer bg-white",
   "file-zone":
@@ -70,26 +70,27 @@ export const compoundClasses = defineCompoundClasses<AppAtomicClassName>()({
   "zone-label": "ma0 fw7 f5",
   "zone-hint": "ma0 mt2 gray f6",
   "item-grid": "flex flex-column mv4 mh0 pa0 list",
-  "item-tile": "ma0 mb3 f6 br4 bg-near-white",
-  "item-content": "relative pt3 ph3 pb0",
-  "copy-icon":
-    "flex absolute right-1 top-1 shadow-1 br-100 pa1 pointer bg-white",
-  "item-text": "ma0 mb3 special-wrap f5 pointer",
-  "item-preview": "db h-auto mw-100 mxh5 mb3 br2 pointer",
+  "item-tile": "ma0 mb4 pa2 f6 br4 bg-near-white",
+  "item-content": "relative pa3 br3 mid-gray bg-white",
+  "item-text": "ma0 special-wrap f5 pointer",
+  "item-preview": "db h-auto mw-100 mxh5 br2 pointer",
+  "item-file-icon": "nl3 pl1 nt2 nb2 pb1",
   "item-error": "ma0 mb3 red",
   "item-actions":
-    "ph2 pt2 flex items-center justify-between br--bottom br4 bg-moon-gray",
-  "item-file-name": "ml2 mb2 near-black f7 fw7 break-word overflow-auto",
+    "pt2 pb0 flex items-center justify-between br--bottom br4 bg-transparent",
+  "button-warn": "b--dull-red mr2 pointer",
+  "icon-container": "pa1 ba bw1 br3",
+  "item-file-name":
+    "flex items-center near-black f7 fw7 break-word overflow-auto",
   "item-actions-buttons": "flex items-center",
-  "item-button": "mb2 ml2 pa2 f6 ba bw1 br3 b--moon-gray bg-near-white pointer",
-  "site-footer":
-    "mt5 pt4 bt b--moon-gray tc system-sans-serif mid-gray f6",
+  "icon-button": "flex items-center ml2 pr2 b--moon-gray bg-near-white pointer",
+  "icon-button-label": "ml1 f7 fw7",
+  "site-footer": "mt5 pt4 bt b--moon-gray tc system-sans-serif mid-gray f6",
   "site-footer-brand":
     "footer-link inline-flex items-center justify-center mb3 near-black fw6 f6 no-underline",
   "site-footer-logo": "mr2 br2",
   "site-footer-links": "flex justify-center items-center mb3 f6",
-  "site-footer-maya":
-    "ma0 pa2 br2 theme bg-washed-yellow f7 fw6",
+  "site-footer-maya": "ma0 pa2 br2 theme bg-washed-yellow f7 fw6",
   "legal-page": "system-sans-serif mw7 ma0 pa3 center min-vh-100",
   "legal-title": "ma0 mt3 mb4 near-black f3 fw7",
   "legal-heading": "mt4 mb2 near-black f4 fw6",

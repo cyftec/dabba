@@ -48,8 +48,11 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  if (event.request.method === "POST" && url.pathname === SHARE_ACTION) {
-    event.respondWith(
+  if (event.request.method !== "POST" || url.pathname !== SHARE_ACTION) {
+    return;
+  }
+
+  event.respondWith(
       (async () => {
         const formData = await event.request.formData();
         const files: SharePayload["files"] = [];
@@ -77,11 +80,7 @@ self.addEventListener("fetch", (event) => {
         redirectUrl.searchParams.set(SHARE_QUERY, "1");
         return Response.redirect(redirectUrl.href, 303);
       })(),
-    );
-    return;
-  }
-
-  event.respondWith(fetch(event.request));
+  );
 });
 
 self.addEventListener("install", (event) => {

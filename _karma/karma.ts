@@ -143,6 +143,9 @@ export const karma: Karma = {
       noUnusedLocals: true,
       noUnusedParameters: true,
       types: ["bun-types"],
+      paths: {
+        "@controllers/*": ["./dev/controllers/*"],
+      },
     },
     include: ["_karma/**/*.ts", "dev/**/*.ts"],
   },
